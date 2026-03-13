@@ -1,6 +1,7 @@
 export type Ethnicity = 'slavic' | 'middle_eastern' | 'european' | 'turkish'
 export type Concept = 'minimal_studio' | 'street_fashion' | 'luxury_showroom'
 export type GenerationStatus = 'pending' | 'processing' | 'completed' | 'failed'
+export type FabricType = 'cotton' | 'denim' | 'silk' | 'knit' | 'leather' | 'linen' | 'polyester'
 
 export interface Profile {
   id: string
@@ -104,3 +105,39 @@ export const POSE_VARIATIONS = [
   'walking towards camera, confident stride',
   'standing back view, full garment display'
 ]
+
+// ─── P2: Physics-Aware Draping ───
+// Her kumaş tipi için fiziksel döküm talimatları.
+// FASHN product-to-model prompt'una enjekte edilerek
+// AI'ın kumaşın gerçek fiziksel davranışını simüle etmesini sağlar.
+export const FABRIC_CONFIG: Record<FabricType, { label: string; drapePrompt: string }> = {
+  cotton: {
+    label: 'Pamuk (Cotton)',
+    drapePrompt: 'lightweight cotton fabric with natural soft drape, gentle creases at joints, breathable relaxed fit, subtle wrinkles at elbow and waist'
+  },
+  denim: {
+    label: 'Denim',
+    drapePrompt: 'rigid heavyweight denim fabric, structured stiff drape, visible selvedge texture, crisp fold lines, minimal stretch, industrial stitching details visible'
+  },
+  silk: {
+    label: 'İpek (Silk)',
+    drapePrompt: 'fluid silk fabric with luxurious liquid drape, smooth flowing silhouette, light-catching sheen, elegant bias-cut folds, weightless cascading movement'
+  },
+  knit: {
+    label: 'Triko (Knit)',
+    drapePrompt: 'soft knit fabric with stretchy body-hugging fit, visible knit texture pattern, gentle ribbing at cuffs and hem, cozy relaxed drape'
+  },
+  leather: {
+    label: 'Deri (Leather)',
+    drapePrompt: 'supple leather with structured heavy drape, visible grain texture, sharp creases at bends, slight sheen, stiff collar and lapels'
+  },
+  linen: {
+    label: 'Keten (Linen)',
+    drapePrompt: 'natural linen fabric with characteristic irregular wrinkles, relaxed loose drape, visible weave texture, casual rumpled elegance'
+  },
+  polyester: {
+    label: 'Polyester',
+    drapePrompt: 'smooth polyester blend fabric with crisp structured drape, wrinkle-resistant surface, slight synthetic sheen, clean sharp lines'
+  }
+}
+

@@ -14,7 +14,8 @@ import {
   Eye,
   Settings2,
   Image as ImageIcon,
-  UserCircle
+  UserCircle,
+  Flag
 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 
@@ -428,8 +429,31 @@ export default function StudioPage() {
                                fill
                                className="object-cover group-hover:scale-110 transition-transform duration-500"
                              />
-                             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2">
+                             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-2 gap-1">
                                <p className="text-[10px] font-medium text-white tracking-widest uppercase">Variant {i + 1}</p>
+                               <button
+                                 type="button"
+                                 onClick={async () => {
+                                   if (!generationId) return
+                                   try {
+                                     const res = await fetch('/api/refund', {
+                                       method: 'POST',
+                                       headers: { 'Content-Type': 'application/json' },
+                                       body: JSON.stringify({ generationId, reason: 'Defective image reported by user' })
+                                     })
+                                     const data = await res.json()
+                                     if (res.ok) {
+                                       toast.success(data.message || 'Kredi iade edildi')
+                                     } else {
+                                       toast.error(data.error || 'İade başarısız')
+                                     }
+                                   } catch { toast.error('İade isteği gönderilemedi') }
+                                 }}
+                                 className="flex items-center gap-1 text-[9px] text-red-300 hover:text-red-200 transition-colors"
+                               >
+                                 <Flag className="w-3 h-3" />
+                                 Report Defective
+                               </button>
                              </div>
                            </div>
                         ))}
