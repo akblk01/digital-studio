@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     // 1. Kredi kontrolü ve düşme (atomik)
     const { data: hasCredits, error: creditError } = await supabaseAdmin.rpc('deduct_credits', {
       p_user_id: user.id,
-      p_amount: 20
+      p_amount: 4
     })
     
     if (creditError || !hasCredits) {
@@ -41,23 +41,26 @@ export async function POST(req: NextRequest) {
         ethnicity,
         concept,
         status: 'processing',
-        credits_used: 20
+        credits_used: 4
       })
       .select()
       .single()
 
     if (genError) throw genError
 
-    // 3. 20 varyasyon üret (paralel gruplar halinde)
+    // 3. 4 varyasyon üret (paralel gruplar halinde)
     // IMPORTANT: To prevent timeout and hitting concurrency limits too fast, we'll process them in smaller batches.
     const ethnicityPrompt = ETHNICITY_CONFIG[ethnicity].modelPrompt
     const conceptPrompt = CONCEPT_CONFIG[concept].bgPrompt
     const batchSize = 2 // Reduced batch size since we're doing 2 API calls per variation now
 
     const generatedImages: { image_url: string; variation_index: number; pose_description: string }[] = []
+    
+    // Sadece ilk 4 pozu alıyoruz (Maliyet tasarrufu)
+    const selectedVariations = POSE_VARIATIONS.slice(0, 4)
 
-    for (let i = 0; i < POSE_VARIATIONS.length; i += batchSize) {
-      const batch = POSE_VARIATIONS.slice(i, i + batchSize)
+    for (let i = 0; i < selectedVariations.length; i += batchSize) {
+      const batch = selectedVariations.slice(i, i + batchSize)
       const results = await Promise.allSettled(
         batch.map(async (pose, batchIndex) => {
           const index = i + batchIndex

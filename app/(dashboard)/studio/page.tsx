@@ -139,7 +139,7 @@ export default function StudioPage() {
       setIsGenerating(false)
       setProgressStep(4)
       
-      toast.success("Tebrikler! 20 adet profesyonel katalog görseliniz hazır.", {
+      toast.success("Tebrikler! 4 adet profesyonel katalog görseliniz hazır.", {
         position: 'top-center',
         className: 'bg-zinc-900 border-zinc-800 text-white'
       })
@@ -301,7 +301,7 @@ export default function StudioPage() {
                   className="w-full h-12 flex items-center justify-center gap-2 bg-gradient-to-r from-fuchsia-500 to-violet-500 hover:from-fuchsia-600 hover:to-violet-600 text-white text-sm font-bold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg disabled:shadow-none"
                 >
                   <Sparkles className="w-4 h-4" />
-                  Generate 20 Professional Photos
+                  Generate 4 Professional Photos
                 </button>
               </div>
             </form>
