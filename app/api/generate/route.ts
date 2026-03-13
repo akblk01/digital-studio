@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
-import { generateCatalogImage } from '@/lib/fal'
+import { generateBaseModel, virtualTryOn } from '@/lib/fal'
 import { ETHNICITY_CONFIG, CONCEPT_CONFIG, POSE_VARIATIONS } from '@/types'
 import type { Ethnicity, Concept } from '@/types'
 
@@ -49,9 +49,10 @@ export async function POST(req: NextRequest) {
     if (genError) throw genError
 
     // 3. 20 varyasyon üret (paralel gruplar halinde)
+    // IMPORTANT: To prevent timeout and hitting concurrency limits too fast, we'll process them in smaller batches.
     const ethnicityPrompt = ETHNICITY_CONFIG[ethnicity].modelPrompt
     const conceptPrompt = CONCEPT_CONFIG[concept].bgPrompt
-    const batchSize = 4 // Her defasında 4 tanesi paralel çalışacak şekilde
+    const batchSize = 2 // Reduced batch size since we're doing 2 API calls per variation now
 
     const generatedImages: { image_url: string; variation_index: number; pose_description: string }[] = []
 
@@ -60,8 +61,14 @@ export async function POST(req: NextRequest) {
       const results = await Promise.allSettled(
         batch.map(async (pose, batchIndex) => {
           const index = i + batchIndex
-          const resultUrl = await generateCatalogImage(imageUrl, ethnicityPrompt, conceptPrompt, pose)
-          return { image_url: resultUrl, variation_index: index, pose_description: pose }
+          
+          // Step 1: Generate Base Model Image
+          const baseModelUrl = await generateBaseModel(ethnicityPrompt, conceptPrompt, pose)
+          
+          // Step 2: Swap Garment onto the Base Model
+          const finalImageUrl = await virtualTryOn(imageUrl, baseModelUrl)
+          
+          return { image_url: finalImageUrl, variation_index: index, pose_description: pose }
         })
       )
       
@@ -75,16 +82,19 @@ export async function POST(req: NextRequest) {
     }
 
     // 4. Sonuçları kaydet
-    if (generatedImages.length > 0) {
-      await supabaseAdmin.from('generated_images').insert(
-        generatedImages.map(img => ({ ...img, generation_id: generation.id }))
-      )
+    if (generatedImages.length === 0) {
+      await supabaseAdmin.from('generations').update({ status: 'failed' }).eq('id', generation.id)
+      return NextResponse.json({ error: 'Görsel üretimi başarısız oldu. Yapay zeka servisleri geçici olarak yanıt vermiyor olabilir.' }, { status: 500 })
     }
+
+    await supabaseAdmin.from('generated_images').insert(
+      generatedImages.map(img => ({ ...img, generation_id: generation.id }))
+    )
 
     // 5. Status güncelle
     await supabaseAdmin
       .from('generations')
-      .update({ status: generatedImages.length > 0 ? 'completed' : 'failed' })
+      .update({ status: 'completed' })
       .eq('id', generation.id)
 
     return NextResponse.json({

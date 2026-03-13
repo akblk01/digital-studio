@@ -11,7 +11,7 @@ export async function virtualTryOn(
   garmentImageUrl: string,
   modelImageUrl: string
 ): Promise<string> {
-  const result = await fal.subscribe('fal-ai/fashn-vton', {
+  const result = await fal.subscribe('fal-ai/fashn/tryon/v1.5', {
     input: {
       model_image: modelImageUrl,
       garment_image: garmentImageUrl,
@@ -19,24 +19,24 @@ export async function virtualTryOn(
     },
     logs: true,
   })
-  return (result.data as any).image.url
+  return (result.data as any).images[0].url
 }
 
-// Flux Pro — Arka plan ve atmosfer ile tam görsel üretimi
-export async function generateCatalogImage(
-  garmentImageUrl: string,
+// Flux Pro — Arka plan ve atmosfer ile baz model üretimi (Kıyafetsiz/Basit kıyafetli manken)
+export async function generateBaseModel(
   ethnicityPrompt: string,
   conceptPrompt: string,
   poseDescription: string
 ): Promise<string> {
-  const prompt = `Professional fashion catalog photo. ${ethnicityPrompt}, wearing the exact garment shown in the reference image. ${poseDescription}. ${conceptPrompt}. Ultra high quality, 8k, sharp details, the garment pattern and texture must be perfectly preserved.`
+  // CRITICAL: Base model must wear a seamless, tight neutral garment to prevent VTON from hallucinating pockets/buttons from the base image onto the final garment.
+  // CRITICAL: Photography keywords added to prevent "plastic AI" look.
+  const prompt = `RAW candid style fashion photography, shot on Fujifilm XT4, 35mm lens, natural lighting, subtle skin texture, minor facial imperfections, unretouched, hyper-realistic fashion editorial. ${ethnicityPrompt}, wearing a tight-fitting seamless neutral grey tank top and simple tailored trousers. NO buttons, NO pockets, NO zippers, NO waistbands, completely smooth and seamless upper body clothing. ${poseDescription}. ${conceptPrompt}. Ultra high quality, 8k, sharp details, realistic lighting and shadows.`
 
   const result = await fal.subscribe('fal-ai/flux-pro', {
     input: {
       prompt,
-      image_url: garmentImageUrl,
       num_inference_steps: 28,
-      guidance_scale: 3.5,
+      guidance_scale: 2.5, // Lower guidance scale reduces the "plastic/CGI" AI aesthetic
       image_size: 'portrait_4_3',
       safety_tolerance: '2',
     },

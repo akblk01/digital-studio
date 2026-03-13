@@ -354,7 +354,7 @@ export default function StudioPage() {
                   <div className="flex-1 overflow-y-auto pr-1">
                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         {results.map((img, i) => (
-                           <div key={img.id} className="group relative aspect-[3/4] rounded-xl overflow-hidden bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700">
+                           <div key={img.id || i} className="group relative aspect-[3/4] rounded-xl overflow-hidden bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700">
                              <Image
                                src={img.image_url}
                                alt={`Pose ${i + 1}`}

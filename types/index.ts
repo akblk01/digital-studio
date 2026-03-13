@@ -51,34 +51,34 @@ export interface CreditTransaction {
 export const ETHNICITY_CONFIG: Record<Ethnicity, { label: string; modelPrompt: string }> = {
   slavic: {
     label: 'Slavic / Russian',
-    modelPrompt: 'beautiful slavic female model, light skin, light eyes, high cheekbones'
+    modelPrompt: 'beautiful slavic female model, natural pale skin with subtle pores, light expressive eyes, realistic facial symmetry'
   },
   middle_eastern: {
     label: 'Middle Eastern / Arab',
-    modelPrompt: 'beautiful middle eastern female model, olive skin, dark hair, elegant features'
+    modelPrompt: 'striking middle eastern female model, natural olive skin texture, dark hair, authentic elegant features, real person'
   },
   european: {
     label: 'European / Western',
-    modelPrompt: 'beautiful western european female model, professional look'
+    modelPrompt: 'beautiful western european female model, natural skin texture, everyday professional look, candid'
   },
   turkish: {
     label: 'Turkish / Local',
-    modelPrompt: 'beautiful turkish female model, mediterranean features, warm skin tone'
+    modelPrompt: 'beautiful turkish female model, genuine mediterranean features, warm natural skin tone with slight imperfections'
   }
 }
 
 export const CONCEPT_CONFIG: Record<Concept, { label: string; bgPrompt: string }> = {
   minimal_studio: {
     label: 'Minimal Stüdyo',
-    bgPrompt: 'clean white studio background, soft professional lighting, fashion photography'
+    bgPrompt: 'clean soft grey studio background, professional softbox lighting, subtle physical shadows on the floor, Vogue editorial style'
   },
   street_fashion: {
     label: 'Street Fashion',
-    bgPrompt: 'upscale city street, Nisantasi Istanbul style, European boulevard, natural daylight, fashion editorial'
+    bgPrompt: 'blurred city street background, shallow depth of field, bokeh, beautiful natural sunlight, candid lifestyle fashion shot'
   },
   luxury_showroom: {
     label: 'Luxury Showroom',
-    bgPrompt: 'luxury fashion showroom interior, marble floors, elegant lighting, high-end boutique'
+    bgPrompt: 'out-of-focus luxury boutique interior background, warm elegant ambient lighting, cinematic depth, premium fashion aesthetic'
   }
 }
 
