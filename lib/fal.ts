@@ -1,17 +1,27 @@
 import { fal } from '@fal-ai/client'
 
-// client side veya server side kullanılabilir, credential'ı sadece server ortamında kullanmak için fal otomatik ortam değişkenini okur 
-// Yine de açıkça belirtmek iyi bir pratiktir, server side için tasarlandığından bunu ayarlıyoruz.
+// Server-side credential setup
 if (process.env.FAL_KEY) {
   fal.config({ credentials: process.env.FAL_KEY })
 }
 
-// VTON — Kıyafeti mankene giydirme
+// ─── NEGATIVE PROMPT ───
+// Otomatik olarak her üretim çağrısına eklenir.
+// Anatomik hataları, plastik cilt dokusunu ve AI artifact'larını engeller.
+const NEGATIVE_PROMPT = [
+  'deformed fingers', 'extra limbs', 'bad anatomy', 'fused fingers', 'missing limbs',
+  'plastic skin', 'poreless skin', 'waxy skin', 'dead eyes', 'asymmetric face',
+  'blurry', 'low quality', 'watermark', 'text overlay', 'cropped head',
+  'extra buttons', 'extra pockets', 'deformed clothing details',
+  'CGI render', 'illustration', '3d render', 'cartoon', 'painting'
+].join(', ')
+
+// ─── VTON v1.6 — Kıyafeti mankene giydirme (864x1296 çözünürlük) ───
 export async function virtualTryOn(
   garmentImageUrl: string,
   modelImageUrl: string
 ): Promise<string> {
-  const result = await fal.subscribe('fal-ai/fashn/tryon/v1.5', {
+  const result = await fal.subscribe('fal-ai/fashn/tryon/v1.6', {
     input: {
       model_image: modelImageUrl,
       garment_image: garmentImageUrl,
@@ -22,21 +32,22 @@ export async function virtualTryOn(
   return (result.data as any).images[0].url
 }
 
-// Flux Pro — Arka plan ve atmosfer ile baz model üretimi (Kıyafetsiz/Basit kıyafetli manken)
+// ─── Flux Pro — Nötr baz model üretimi ───
+// Base model, VTON'a girdi olacak bir "tuval" manken üretir.
+// Kıyafet tamamen sade ve dikişsiz olmalıdır, böylece VTON
+// yalnızca kullanıcının yüklediği gerçek ürünü yerleştirir.
 export async function generateBaseModel(
   ethnicityPrompt: string,
   conceptPrompt: string,
   poseDescription: string
 ): Promise<string> {
-  // CRITICAL: Base model must wear a seamless, tight neutral garment to prevent VTON from hallucinating pockets/buttons from the base image onto the final garment.
-  // CRITICAL: Photography keywords added to prevent "plastic AI" look.
-  const prompt = `RAW candid style fashion photography, shot on Fujifilm XT4, 35mm lens, natural lighting, subtle skin texture, minor facial imperfections, unretouched, hyper-realistic fashion editorial. ${ethnicityPrompt}, wearing a tight-fitting seamless neutral grey tank top and simple tailored trousers. NO buttons, NO pockets, NO zippers, NO waistbands, completely smooth and seamless upper body clothing. ${poseDescription}. ${conceptPrompt}. Ultra high quality, 8k, sharp details, realistic lighting and shadows.`
+  const prompt = `RAW candid fashion photography, Fujifilm XT4, 35mm lens, natural available light, visible skin pores, subtle freckles, real human. ${ethnicityPrompt}, wearing a tight-fitting seamless plain neutral grey tank top and simple dark trousers. Absolutely NO buttons, NO pockets, NO zippers, NO seams, NO waistbands visible on upper body — completely smooth featureless fabric. ${poseDescription}. ${conceptPrompt}. Hyper-realistic, editorial quality, subtle depth of field.`
 
   const result = await fal.subscribe('fal-ai/flux-pro', {
     input: {
       prompt,
       num_inference_steps: 28,
-      guidance_scale: 2.5, // Lower guidance scale reduces the "plastic/CGI" AI aesthetic
+      guidance_scale: 2.0,
       image_size: 'portrait_4_3',
       safety_tolerance: '2',
     },
