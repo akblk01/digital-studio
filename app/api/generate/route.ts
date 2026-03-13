@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { productToModel } from '@/lib/fashn'
-import { ETHNICITY_CONFIG, CONCEPT_CONFIG } from '@/types'
-import type { Ethnicity, Concept } from '@/types'
+import { ETHNICITY_CONFIG, CONCEPT_CONFIG, FABRIC_CONFIG } from '@/types'
+import type { Ethnicity, Concept, FabricType } from '@/types'
 
 export const maxDuration = 300 // 5 dakika timeout
 
@@ -21,9 +21,10 @@ export async function POST(req: NextRequest) {
       ethnicity: Ethnicity
       concept: Concept
       faceReferenceUrl?: string
+      fabricType?: FabricType
     }
 
-    const { imageUrl, ethnicity, concept, faceReferenceUrl } = body
+    const { imageUrl, ethnicity, concept, faceReferenceUrl, fabricType } = body
 
     // 1. Kredi kontrolü ve düşme (atomik)
     // face_reference kullanılıyorsa ek maliyet: +3 kredi/görsel × 4 = +12
@@ -57,7 +58,8 @@ export async function POST(req: NextRequest) {
     // Eski 2 aşamalı pipeline (Flux Pro + VTON) tamamen kaldırıldı.
     const ethnicityPrompt = ETHNICITY_CONFIG[ethnicity].modelPrompt
     const conceptPrompt = CONCEPT_CONFIG[concept].bgPrompt
-    const prompt = `${ethnicityPrompt}, ${conceptPrompt}`
+    const drapePrompt = fabricType ? FABRIC_CONFIG[fabricType].drapePrompt : ''
+    const prompt = `${ethnicityPrompt}, ${conceptPrompt}${drapePrompt ? `. ${drapePrompt}` : ''}`
 
     let imageUrls: string[] = []
 

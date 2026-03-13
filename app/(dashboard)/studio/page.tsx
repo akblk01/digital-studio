@@ -24,8 +24,8 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent } from "@/components/ui/card"
-import { ETHNICITY_CONFIG, CONCEPT_CONFIG } from "@/types"
-import type { Ethnicity, Concept, GeneratedImage } from "@/types"
+import { ETHNICITY_CONFIG, CONCEPT_CONFIG, FABRIC_CONFIG } from "@/types"
+import type { Ethnicity, Concept, GeneratedImage, FabricType } from "@/types"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 
@@ -35,6 +35,7 @@ export default function StudioPage() {
   
   const [selectedEthnicity, setSelectedEthnicity] = useState<Ethnicity | null>(null)
   const [selectedConcept, setSelectedConcept] = useState<Concept | null>(null)
+  const [selectedFabric, setSelectedFabric] = useState<FabricType | null>(null)
   
   const [isGenerating, setIsGenerating] = useState(false)
   const [progressStep, setProgressStep] = useState(0)
@@ -154,6 +155,7 @@ export default function StudioPage() {
           ethnicity: selectedEthnicity,
           concept: selectedConcept,
           faceReferenceUrl: uploadedFaceUrl,
+          fabricType: selectedFabric,
         })
       })
 
@@ -322,6 +324,26 @@ export default function StudioPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+
+                {/* Fabric Type (Physics-Aware Draping) */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Settings2 className="w-4 h-4 text-zinc-500" />
+                    <Label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Fabric Type <span className="text-xs font-normal text-zinc-400">(Optional)</span></Label>
+                  </div>
+                  <Select value={selectedFabric || ""} onValueChange={(val) => setSelectedFabric(val as FabricType)}>
+                    <SelectTrigger className="w-full h-12 bg-zinc-50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 rounded-xl focus:ring-violet-500">
+                      <SelectValue placeholder="Auto-detect..." />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl border-zinc-200 dark:border-zinc-800 z-50">
+                      {Object.entries(FABRIC_CONFIG).map(([key, config]) => (
+                        <SelectItem key={key} value={key} className="cursor-pointer">
+                          {config.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Face Reference (Opsiyonel) */}
