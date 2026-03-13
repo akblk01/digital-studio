@@ -106,38 +106,57 @@ export const POSE_VARIATIONS = [
   'standing back view, full garment display'
 ]
 
-// ─── P2: Physics-Aware Draping ───
-// Her kumaş tipi için fiziksel döküm talimatları.
-// FASHN product-to-model prompt'una enjekte edilerek
-// AI'ın kumaşın gerçek fiziksel davranışını simüle etmesini sağlar.
-export const FABRIC_CONFIG: Record<FabricType, { label: string; drapePrompt: string }> = {
+// ─── P2: Physics-Aware Draping (Enhanced) ───
+// 3 katmanlı prompt sistemi:
+// 1. drapePrompt: Fiziksel ağırlık (oz/gsm) + pozitif görsel tanımlayıcılar
+// 2. negativePrompt: Kumaşa-özel "ne olMAMASI gerektiği" talimatları
+export const FABRIC_CONFIG: Record<FabricType, {
+  label: string
+  drapePrompt: string
+  negativePrompt: string
+  weight: 'ultralight' | 'light' | 'medium' | 'heavy' | 'ultraheavy'
+}> = {
   cotton: {
     label: 'Pamuk (Cotton)',
-    drapePrompt: 'lightweight cotton fabric with natural soft drape, gentle creases at joints, breathable relaxed fit, subtle wrinkles at elbow and waist'
+    weight: 'medium',
+    drapePrompt: '6oz medium-weight cotton fabric, soft natural drape with gentle body-following silhouette, subtle creases at elbow and waist joints, matte cotton surface texture, slightly rumpled lived-in appearance',
+    negativePrompt: 'NOT shiny, NOT stiff like denim, NOT flowing like silk, NO synthetic sheen, NO heavy rigid folds'
   },
   denim: {
     label: 'Denim',
-    drapePrompt: 'rigid heavyweight denim fabric, structured stiff drape, visible selvedge texture, crisp fold lines, minimal stretch, industrial stitching details visible'
+    weight: 'heavy',
+    drapePrompt: '14oz heavyweight raw indigo denim, ZERO drape completely stiff structured silhouette, sharp angular creases NOT soft folds, thick coarse diagonal twill weave texture clearly visible, fabric holds its own shape independent of body, heavy substantial material weight visible in how garment hangs straight down',
+    negativePrompt: 'absolutely NOT flowing, NOT lightweight, NOT billowing, NOT airy, NOT linen-like texture, NOT soft drape, NO gentle folds, NO sheer quality, NOT like cotton jersey, fabric must NOT move freely'
   },
   silk: {
     label: 'İpek (Silk)',
-    drapePrompt: 'fluid silk fabric with luxurious liquid drape, smooth flowing silhouette, light-catching sheen, elegant bias-cut folds, weightless cascading movement'
+    weight: 'ultralight',
+    drapePrompt: '4mm lightweight charmeuse silk, extremely fluid liquid-like drape cascading over body contours, luminous light-catching satin sheen, weightless flowing movement, delicate bias-cut folds that follow gravity smoothly, semi-transparent quality at thin areas',
+    negativePrompt: 'NOT stiff, NOT structured, NOT rigid, NOT creased sharply, NO denim-like heaviness, NO matte surface, NOT coarse texture, NO angular folds'
   },
   knit: {
     label: 'Triko (Knit)',
-    drapePrompt: 'soft knit fabric with stretchy body-hugging fit, visible knit texture pattern, gentle ribbing at cuffs and hem, cozy relaxed drape'
+    weight: 'medium',
+    drapePrompt: '8oz medium-weight jersey knit, stretchy body-hugging fit that reveals body contours, visible knit loop texture pattern, soft elastic drape, gentle ribbing visible at cuffs and hemline, relaxed comfortable hang',
+    negativePrompt: 'NOT woven texture, NOT stiff, NOT rigid, NOT shiny, NO sharp creases, NO angular folds, NOT like denim or linen'
   },
   leather: {
     label: 'Deri (Leather)',
-    drapePrompt: 'supple leather with structured heavy drape, visible grain texture, sharp creases at bends, slight sheen, stiff collar and lapels'
+    weight: 'heavy',
+    drapePrompt: '1.2mm thick full-grain leather, heavy structured drape with visible hide grain texture, sharp defined creases at bend points only, slight natural waxy sheen, stiff collar and lapels that hold shape, material does NOT conform to body loosely',
+    negativePrompt: 'NOT soft flowing, NOT lightweight, NOT fabric-like drape, NOT wrinkled like linen, NO textile weave visible, NOT matte like cotton'
   },
   linen: {
     label: 'Keten (Linen)',
-    drapePrompt: 'natural linen fabric with characteristic irregular wrinkles, relaxed loose drape, visible weave texture, casual rumpled elegance'
+    weight: 'light',
+    drapePrompt: '5oz lightweight linen, characteristic natural irregular wrinkles and creases throughout, relaxed loose drape that does NOT cling to body, visible coarse plain-weave texture, casually rumpled artfully disheveled appearance, breathable airy open structure',
+    negativePrompt: 'NOT smooth, NOT structured, NOT stiff like denim, NOT shiny, NO synthetic appearance, NOT body-hugging, NOT perfectly pressed'
   },
   polyester: {
     label: 'Polyester',
-    drapePrompt: 'smooth polyester blend fabric with crisp structured drape, wrinkle-resistant surface, slight synthetic sheen, clean sharp lines'
+    weight: 'light',
+    drapePrompt: '4oz lightweight polyester blend, crisp wrinkle-free surface, slight synthetic sheen under light, clean sharp pressed lines, smooth uniform texture without natural irregularities, maintains pressed appearance',
+    negativePrompt: 'NOT wrinkled, NOT creased naturally, NOT matte like cotton, NOT heavy like denim, NO natural fiber texture, NOT rumpled'
   }
 }
 

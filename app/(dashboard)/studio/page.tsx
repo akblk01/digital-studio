@@ -38,6 +38,7 @@ export default function StudioPage() {
   const [selectedFabric, setSelectedFabric] = useState<FabricType | null>(null)
   
   const [isGenerating, setIsGenerating] = useState(false)
+  const [isDetectingFabric, setIsDetectingFabric] = useState(false)
   const [progressStep, setProgressStep] = useState(0)
   const [progress, setProgress] = useState(0)
   const [currentTextIndex, setCurrentTextIndex] = useState(0)
@@ -88,6 +89,37 @@ export default function StudioPage() {
     return () => clearInterval(interval)
   }, [isGenerating])
 
+  const detectFabric = async (sourceFile: File) => {
+    setIsDetectingFabric(true)
+    const toastId = toast.loading("Analyzing fabric type...")
+    try {
+      const reader = new FileReader()
+      reader.readAsDataURL(sourceFile)
+      reader.onload = async () => {
+        const base64Data = (reader.result as string).split(',')[1]
+        const res = await fetch('/api/detect-fabric', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ base64Image: base64Data })
+        })
+        if (res.ok) {
+          const data = await res.json()
+          if (data.fabric && FABRIC_CONFIG[data.fabric as FabricType]) {
+            setSelectedFabric(data.fabric as FabricType)
+            toast.success(`Fabric detected: ${FABRIC_CONFIG[data.fabric as FabricType].label}`, { id: toastId })
+            return
+          }
+        }
+        toast.dismiss(toastId)
+      }
+    } catch (err) {
+      toast.dismiss(toastId)
+      console.error(err)
+    } finally {
+      setIsDetectingFabric(false)
+    }
+  }
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0]
@@ -95,6 +127,7 @@ export default function StudioPage() {
       setImageUrl(URL.createObjectURL(selectedFile))
       setResults([])
       setShowPreview(false)
+      detectFabric(selectedFile)
     }
   }
 
@@ -332,9 +365,9 @@ export default function StudioPage() {
                     <Settings2 className="w-4 h-4 text-zinc-500" />
                     <Label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Fabric Type <span className="text-xs font-normal text-zinc-400">(Optional)</span></Label>
                   </div>
-                  <Select value={selectedFabric || ""} onValueChange={(val) => setSelectedFabric(val as FabricType)}>
+                  <Select value={selectedFabric || ""} onValueChange={(val) => setSelectedFabric(val as FabricType)} disabled={isDetectingFabric}>
                     <SelectTrigger className="w-full h-12 bg-zinc-50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 rounded-xl focus:ring-violet-500">
-                      <SelectValue placeholder="Auto-detect..." />
+                      <SelectValue placeholder={isDetectingFabric ? "Auto-detecting..." : "Auto-detect..."} />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl border-zinc-200 dark:border-zinc-800 z-50">
                       {Object.entries(FABRIC_CONFIG).map(([key, config]) => (

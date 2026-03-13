@@ -58,8 +58,10 @@ export async function POST(req: NextRequest) {
     // Eski 2 aşamalı pipeline (Flux Pro + VTON) tamamen kaldırıldı.
     const ethnicityPrompt = ETHNICITY_CONFIG[ethnicity].modelPrompt
     const conceptPrompt = CONCEPT_CONFIG[concept].bgPrompt
-    const drapePrompt = fabricType ? FABRIC_CONFIG[fabricType].drapePrompt : ''
-    const prompt = `${ethnicityPrompt}, ${conceptPrompt}${drapePrompt ? `. ${drapePrompt}` : ''}`
+    const fabricConfig = fabricType ? FABRIC_CONFIG[fabricType] : null
+    const drapePrompt = fabricConfig?.drapePrompt || ''
+    const negativePrompt = fabricConfig?.negativePrompt || ''
+    const prompt = `${ethnicityPrompt}, ${conceptPrompt}${drapePrompt ? `. ${drapePrompt}` : ''}${negativePrompt ? `. ${negativePrompt}` : ''}`
 
     let imageUrls: string[] = []
 
