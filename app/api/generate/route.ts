@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
-import { generateBaseModel, virtualTryOn } from '@/lib/fal'
-import { ETHNICITY_CONFIG, CONCEPT_CONFIG, POSE_VARIATIONS } from '@/types'
+import { productToModel } from '@/lib/fashn'
+import { ETHNICITY_CONFIG, CONCEPT_CONFIG } from '@/types'
 import type { Ethnicity, Concept } from '@/types'
 
-export const maxDuration = 300 // 5 dakika timeout (Vercel pro için geçerli, dev ortamında local limite tabi)
+export const maxDuration = 300 // 5 dakika timeout
 
 export async function POST(req: NextRequest) {
   try {
@@ -16,16 +16,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { imageUrl, ethnicity, concept } = await req.json() as {
+    const body = await req.json() as {
       imageUrl: string
       ethnicity: Ethnicity
       concept: Concept
+      faceReferenceUrl?: string
     }
 
+    const { imageUrl, ethnicity, concept, faceReferenceUrl } = body
+
     // 1. Kredi kontrolü ve düşme (atomik)
+    // face_reference kullanılıyorsa ek maliyet: +3 kredi/görsel × 4 = +12
+    const creditCost = faceReferenceUrl ? 16 : 4
     const { data: hasCredits, error: creditError } = await supabaseAdmin.rpc('deduct_credits', {
       p_user_id: user.id,
-      p_amount: 4
+      p_amount: creditCost
     })
     
     if (creditError || !hasCredits) {
@@ -41,58 +46,52 @@ export async function POST(req: NextRequest) {
         ethnicity,
         concept,
         status: 'processing',
-        credits_used: 4
+        credits_used: creditCost
       })
       .select()
       .single()
 
     if (genError) throw genError
 
-    // 3. 4 varyasyon üret (paralel gruplar halinde)
-    // IMPORTANT: To prevent timeout and hitting concurrency limits too fast, we'll process them in smaller batches.
+    // 3. FASHN.ai product-to-model — TEK API ÇAĞRISI ile 4 görsel üret
+    // Eski 2 aşamalı pipeline (Flux Pro + VTON) tamamen kaldırıldı.
     const ethnicityPrompt = ETHNICITY_CONFIG[ethnicity].modelPrompt
     const conceptPrompt = CONCEPT_CONFIG[concept].bgPrompt
-    const batchSize = 2 // Reduced batch size since we're doing 2 API calls per variation now
+    const prompt = `${ethnicityPrompt}, ${conceptPrompt}`
 
-    const generatedImages: { image_url: string; variation_index: number; pose_description: string }[] = []
-    
-    // Sadece ilk 4 pozu alıyoruz (Maliyet tasarrufu)
-    const selectedVariations = POSE_VARIATIONS.slice(0, 4)
+    let imageUrls: string[] = []
 
-    for (let i = 0; i < selectedVariations.length; i += batchSize) {
-      const batch = selectedVariations.slice(i, i + batchSize)
-      const results = await Promise.allSettled(
-        batch.map(async (pose, batchIndex) => {
-          const index = i + batchIndex
-          
-          // Step 1: Generate Base Model Image
-          const baseModelUrl = await generateBaseModel(ethnicityPrompt, conceptPrompt, pose)
-          
-          // Step 2: Swap Garment onto the Base Model
-          const finalImageUrl = await virtualTryOn(imageUrl, baseModelUrl)
-          
-          return { image_url: finalImageUrl, variation_index: index, pose_description: pose }
-        })
-      )
-      
-      results.forEach(r => {
-        if (r.status === 'fulfilled') {
-          generatedImages.push(r.value)
-        } else {
-          console.error("Fal.ai generation error for a variation:", r.reason)
-        }
+    try {
+      imageUrls = await productToModel({
+        productImageUrl: imageUrl,
+        prompt,
+        faceReferenceUrl,
+        numImages: 4,
+        aspectRatio: '3:4',
+        resolution: '1k',
       })
+    } catch (apiError: any) {
+      console.error('FASHN.ai API error:', apiError)
+      await supabaseAdmin.from('generations').update({ status: 'failed' }).eq('id', generation.id)
+      return NextResponse.json({ 
+        error: `Görsel üretimi başarısız: ${apiError.message || 'FASHN.ai servisi yanıt vermedi.'}` 
+      }, { status: 500 })
     }
 
     // 4. Sonuçları kaydet
-    if (generatedImages.length === 0) {
+    if (imageUrls.length === 0) {
       await supabaseAdmin.from('generations').update({ status: 'failed' }).eq('id', generation.id)
-      return NextResponse.json({ error: 'Görsel üretimi başarısız oldu. Yapay zeka servisleri geçici olarak yanıt vermiyor olabilir.' }, { status: 500 })
+      return NextResponse.json({ error: 'Görsel üretimi başarısız oldu.' }, { status: 500 })
     }
 
-    await supabaseAdmin.from('generated_images').insert(
-      generatedImages.map(img => ({ ...img, generation_id: generation.id }))
-    )
+    const generatedImages = imageUrls.map((url, index) => ({
+      image_url: url,
+      variation_index: index,
+      pose_description: `FASHN product-to-model variation ${index + 1}`,
+      generation_id: generation.id,
+    }))
+
+    await supabaseAdmin.from('generated_images').insert(generatedImages)
 
     // 5. Status güncelle
     await supabaseAdmin

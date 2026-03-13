@@ -13,7 +13,8 @@ import {
   Palette,
   Eye,
   Settings2,
-  Image as ImageIcon
+  Image as ImageIcon,
+  UserCircle
 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 
@@ -43,6 +44,11 @@ export default function StudioPage() {
   const [generationId, setGenerationId] = useState<string | null>(null)
   
   const [showPreview, setShowPreview] = useState(false) // Toggle form vs generating/results view
+
+  // Face Reference (Tutarlı Model Yüzü)
+  const [faceFile, setFaceFile] = useState<File | null>(null)
+  const [facePreviewUrl, setFacePreviewUrl] = useState<string | null>(null)
+  const [faceReferenceUrl, setFaceReferenceUrl] = useState<string | null>(null)
 
   const supabase = createClient()
 
@@ -90,6 +96,14 @@ export default function StudioPage() {
     }
   }
 
+  const handleFaceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const selectedFace = e.target.files[0]
+      setFaceFile(selectedFace)
+      setFacePreviewUrl(URL.createObjectURL(selectedFace))
+    }
+  }
+
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!file || !selectedEthnicity || !selectedConcept) return
@@ -115,13 +129,30 @@ export default function StudioPage() {
 
       setProgressStep(2)
 
+      // Face reference varsa onu da Supabase'e yükle
+      let uploadedFaceUrl: string | undefined
+      if (faceFile) {
+        const faceExt = faceFile.name.split('.').pop()
+        const faceName = `faces/${Math.random()}.${faceExt}`
+        const { error: faceUploadErr } = await supabase.storage
+          .from('product-images')
+          .upload(faceName, faceFile)
+        if (!faceUploadErr) {
+          const { data: { publicUrl: facePublicUrl } } = supabase.storage
+            .from('product-images')
+            .getPublicUrl(faceName)
+          uploadedFaceUrl = facePublicUrl
+        }
+      }
+
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           imageUrl: publicUrl,
           ethnicity: selectedEthnicity,
-          concept: selectedConcept
+          concept: selectedConcept,
+          faceReferenceUrl: uploadedFaceUrl,
         })
       })
 
@@ -289,6 +320,42 @@ export default function StudioPage() {
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+                </div>
+
+                {/* Face Reference (Opsiyonel) */}
+                <div className="space-y-3 pt-4 border-t border-zinc-100 dark:border-zinc-800/50">
+                  <div className="flex items-center gap-2">
+                    <UserCircle className="w-4 h-4 text-zinc-500" />
+                    <Label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Consistent Model Face <span className="text-xs font-normal text-zinc-400">(Optional)</span></Label>
+                  </div>
+                  <p className="text-xs text-zinc-500">Upload a face photo to keep the same model identity across all generations. Extra credits apply.</p>
+                  <div className="relative border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl p-4 hover:border-violet-400 transition-colors cursor-pointer">
+                    {facePreviewUrl ? (
+                      <div className="flex items-center gap-3">
+                        <Image src={facePreviewUrl} alt="Face" width={48} height={48} className="rounded-full object-cover w-12 h-12" />
+                        <div>
+                          <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{faceFile?.name}</p>
+                          <button type="button" onClick={() => { setFaceFile(null); setFacePreviewUrl(null); setFaceReferenceUrl(null) }} className="text-xs text-red-500 hover:text-red-400">
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <label htmlFor="face-upload" className="flex items-center gap-3 cursor-pointer">
+                        <div className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
+                          <UserCircle className="w-5 h-5 text-zinc-400" />
+                        </div>
+                        <span className="text-sm text-zinc-500">Click to upload face reference</span>
+                      </label>
+                    )}
+                    <Input
+                      id="face-upload"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleFaceUpload}
+                    />
                   </div>
                 </div>
               </div>
