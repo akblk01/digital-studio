@@ -322,10 +322,29 @@ export default function StudioPage() {
     }
   }
 
+  const isMobile = typeof navigator !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+
   const handleDownloadZip = () => {
-    if (generationId) {
+    if (!generationId) return
+    if (isMobile) {
+      // Mobilde ZIP desteklenmez — her görseli ayrı sekmede aç (uzun bas → kaydet)
+      results.forEach((img) => {
+        window.open(img.image_url, '_blank')
+      })
+      toast.info('Görseller yeni sekmelerde açıldı. Uzun basarak kaydet.', { position: 'top-center' })
+    } else {
       window.location.href = `/api/download?generationId=${generationId}`
     }
+  }
+
+  const handleDownloadSingle = (url: string) => {
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `texstudio_${Date.now()}.jpg`
+    a.target = '_blank'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
   }
 
   const handleBackToForm = () => {
@@ -693,7 +712,7 @@ export default function StudioPage() {
                       className="bg-zinc-900 hover:bg-zinc-800 text-white rounded-lg px-3 h-8 text-xs font-semibold"
                     >
                       <Download className="w-3.5 h-3.5 mr-1.5" />
-                      Save Collection (.zip)
+                      {isMobile ? 'Görselleri Aç' : 'Save Collection (.zip)'}
                     </Button>
                   </div>
 
@@ -707,6 +726,13 @@ export default function StudioPage() {
                                fill
                                className="object-cover group-hover:scale-[1.03] transition-transform duration-500"
                              />
+                             <button
+                               onClick={() => handleDownloadSingle(img.image_url)}
+                               className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 hover:bg-black/80 text-white rounded-lg p-1.5"
+                               title="İndir"
+                             >
+                               <Download className="w-3 h-3" />
+                             </button>
                            </div>
                         ))}
                      </div>
