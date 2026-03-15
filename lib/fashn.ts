@@ -82,6 +82,7 @@ async function fashnPoll(predictionId: string, maxWaitMs = 300_000): Promise<str
  */
 export async function productToModel(options: {
   productImageUrl: string
+  backImageUrl?: string       // Arka açı / sırt görseli (opsiyonel)
   prompt?: string
   faceReferenceUrl?: string
   backgroundReferenceUrl?: string
@@ -99,12 +100,19 @@ export async function productToModel(options: {
   }
 
   // Prompt enjeksiyonu — anatomi hata engelleyici + kullanıcı prompt'u
-  const safetyPrompt = 'realistic skin texture, natural lighting, fashion editorial'
+  // NOT: FASHN product-to-model negative_prompt parametresi DESTEKLEMIYOR.
+  // Negatif ifadeler pozitif prompt içine eklendi.
+  const safetyPrompt = 'realistic skin texture, natural lighting, fashion editorial, both arms fully visible, complete arms with hands, full body anatomy'
+  
   if (options.prompt) {
     inputs.prompt = `${options.prompt}. ${safetyPrompt}`
   } else {
     inputs.prompt = safetyPrompt
   }
+
+  // NOT: FASHN product-to-model, image_context parametresini DESTEKLEMIYOR.
+  // Arka açı görseli şu an sadece prompt ile telafi edilebilir.
+  // Bu parametre ileride FASHN'ın farklı bir endpoint'i desteklerse kullanılacak.
 
   // Face reference (tutarlı model yüzü)
   if (options.faceReferenceUrl) {
@@ -124,6 +132,7 @@ export async function productToModel(options: {
 
   return fashnPoll(predictionId)
 }
+
 
 /**
  * Model Create: Prompt ile sıfırdan gerçekçi manken görseli oluşturur.

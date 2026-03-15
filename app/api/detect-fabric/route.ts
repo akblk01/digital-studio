@@ -27,7 +27,14 @@ export async function POST(req: NextRequest) {
       messages: [
         {
           role: "system",
-          content: `You are a textile expert. Look at the image and identify the main fabric type of the garment. You MUST respond with ONLY one of the following exact words: ${validFabrics.join(', ')}. If you are unsure, pick the closest one. Respond with a single lowercase word.`
+          content: `You are an expert textile analyst. Look closely at the garment image.
+1) Identify the main fabric category from: ${validFabrics.join(', ')}.
+2) Provide a highly detailed description of the physical texture and pattern. Focus on small details like heathering, melange, ribs, slubs, speckles, crinkles, weave type, or print patterns.
+Respond ONLY with a valid JSON object in this exact format:
+{
+  "fabric": "one of the allowed words",
+  "textureDetails": "Ex: subtle speckled melange pattern with dark blue heathering / crisp flat surface / thick ribbed knit structure"
+}`
         },
         {
           role: "user",
@@ -41,18 +48,23 @@ export async function POST(req: NextRequest) {
           ]
         }
       ],
-      max_tokens: 10,
+      response_format: { type: "json_object" },
+      max_tokens: 150,
       temperature: 0.1,
     })
 
-    const detectedFabric = response.choices[0]?.message?.content?.trim().toLowerCase()
+    const rawContent = response.choices[0]?.message?.content?.trim() || "{}"
+    const parsed = JSON.parse(rawContent)
     
     // Validate that the AI returned a valid key
-    if (detectedFabric && validFabrics.includes(detectedFabric)) {
-      return NextResponse.json({ fabric: detectedFabric as FabricType })
+    if (parsed.fabric && validFabrics.includes(parsed.fabric)) {
+      return NextResponse.json({ 
+        fabric: parsed.fabric as FabricType,
+        textureDetails: parsed.textureDetails || ""
+      })
     }
     
-    return NextResponse.json({ fabric: null, message: "Could not decisively identify fabric" })
+    return NextResponse.json({ fabric: null, textureDetails: "", message: "Could not decisively identify fabric" })
     
   } catch (error: any) {
     console.error('Fabric detection error:', error)

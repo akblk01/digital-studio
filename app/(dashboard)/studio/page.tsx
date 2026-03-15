@@ -15,7 +15,8 @@ import {
   Settings2,
   Image as ImageIcon,
   UserCircle,
-  Flag
+  User,
+  PersonStanding
 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 
@@ -24,18 +25,24 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent } from "@/components/ui/card"
-import { ETHNICITY_CONFIG, CONCEPT_CONFIG, FABRIC_CONFIG } from "@/types"
-import type { Ethnicity, Concept, GeneratedImage, FabricType } from "@/types"
+import { ETHNICITY_CONFIG, CONCEPT_CONFIG, FABRIC_CONFIG, GENDER_CONFIG, POSE_CONFIG } from "@/types"
+import type { Ethnicity, Concept, GeneratedImage, FabricType, Gender } from "@/types"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 
 export default function StudioPage() {
   const [file, setFile] = useState<File | null>(null)
   const [imageUrl, setImageUrl] = useState<string | null>(null)
+  const [backFile, setBackFile] = useState<File | null>(null)
+  const [backImageUrl, setBackImageUrl] = useState<string | null>(null)
   
+  const [selectedGender, setSelectedGender] = useState<Gender | null>(null)
   const [selectedEthnicity, setSelectedEthnicity] = useState<Ethnicity | null>(null)
   const [selectedConcept, setSelectedConcept] = useState<Concept | null>(null)
   const [selectedFabric, setSelectedFabric] = useState<FabricType | null>(null)
+  const [extractedTexture, setExtractedTexture] = useState<string>("")
+  const [selectedAccessories, setSelectedAccessories] = useState<string>("")
+  const [selectedPose, setSelectedPose] = useState<string>("auto")
   
   const [isGenerating, setIsGenerating] = useState(false)
   const [isDetectingFabric, setIsDetectingFabric] = useState(false)
@@ -53,7 +60,27 @@ export default function StudioPage() {
   const [facePreviewUrl, setFacePreviewUrl] = useState<string | null>(null)
   const [faceReferenceUrl, setFaceReferenceUrl] = useState<string | null>(null)
 
+  // Saved Models State
+  const [savedModels, setSavedModels] = useState<any[]>([])
+  const [useSavedModel, setUseSavedModel] = useState<boolean>(false)
+
   const supabase = createClient()
+
+  useEffect(() => {
+    async function loadSavedModels() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+        const { data, error } = await supabase.from('saved_models').select('*')
+        if (!error && data) {
+          setSavedModels(data)
+        }
+      } catch (e) {
+        // fail silently if table doesn't exist yet
+      }
+    }
+    loadSavedModels()
+  }, [])
 
   // Fake progress effect for sleek UI
   useEffect(() => {
@@ -106,6 +133,9 @@ export default function StudioPage() {
           const data = await res.json()
           if (data.fabric && FABRIC_CONFIG[data.fabric as FabricType]) {
             setSelectedFabric(data.fabric as FabricType)
+            if (data.textureDetails) {
+              setExtractedTexture(data.textureDetails)
+            }
             toast.success(`Fabric detected: ${FABRIC_CONFIG[data.fabric as FabricType].label}`, { id: toastId })
             return
           }
@@ -126,9 +156,23 @@ export default function StudioPage() {
       setFile(selectedFile)
       setImageUrl(URL.createObjectURL(selectedFile))
       setResults([])
+      setExtractedTexture('')
+      setSelectedAccessories('')
       setShowPreview(false)
       detectFabric(selectedFile)
     }
+  }
+
+  const handleBackFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setBackFile(e.target.files[0])
+      setBackImageUrl(URL.createObjectURL(e.target.files[0]))
+    }
+  }
+
+  const removeBackFile = () => {
+    setBackFile(null)
+    setBackImageUrl(null)
   }
 
   const handleFaceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -141,20 +185,53 @@ export default function StudioPage() {
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!file || !selectedEthnicity || !selectedConcept) return
+    if (!file || !selectedGender || !selectedEthnicity || !selectedConcept) return
 
     setIsGenerating(true)
     setShowPreview(true)
     setProgressStep(1)
 
     try {
-      const fileExt = file.name.split('.').pop()
+      // ─── P3: Texture Preservation (Sharpening Pre-processing) ───
+      // Send original file to our sharpening API to make fine textures pop
+      const reader = new FileReader()
+      const base64Promise = new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve((reader.result as string).split(',')[1])
+        reader.onerror = error => reject(error)
+      })
+      reader.readAsDataURL(file)
+      const originalBase64 = await base64Promise
+
+      const sharpenRes = await fetch('/api/sharpen-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ base64Image: originalBase64 })
+      })
+
+      let fileToUpload = file
+      
+      if (sharpenRes.ok) {
+        const sharpenData = await sharpenRes.json()
+        if (sharpenData.success && sharpenData.sharpenedImage) {
+          // Convert sharpened base64 back to File object
+          const byteCharacters = atob(sharpenData.sharpenedImage)
+          const byteNumbers = new Array(byteCharacters.length)
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i)
+          }
+          const byteArray = new Uint8Array(byteNumbers)
+          fileToUpload = new File([byteArray], file.name, { type: 'image/jpeg' })
+        }
+      }
+
+      // Upload the potentially sharpened file
+      const fileExt = fileToUpload.name.split('.').pop() || 'jpg'
       const fileName = `${Math.random()}.${fileExt}`
       const filePath = `uploads/${fileName}`
 
       const { error: uploadError } = await supabase.storage
         .from('product-images')
-        .upload(filePath, file)
+        .upload(filePath, fileToUpload)
 
       if (uploadError) throw new Error("Görsel yüklenemedi")
       
@@ -180,28 +257,51 @@ export default function StudioPage() {
         }
       }
 
-      const res = await fetch('/api/generate', {
+      // Back-angle görsel varsa Supabase'e yükle
+      let uploadedBackUrl: string | undefined
+      if (backFile) {
+        const backExt = backFile.name.split('.').pop()
+        const backName = `uploads/back_${Math.random()}.${backExt}`
+        const { error: backUploadErr } = await supabase.storage
+          .from('product-images')
+          .upload(backName, backFile)
+        if (!backUploadErr) {
+          const { data: { publicUrl: backPublicUrl } } = supabase.storage
+            .from('product-images')
+            .getPublicUrl(backName)
+          uploadedBackUrl = backPublicUrl
+        }
+      }
+
+      const response = await fetch('/api/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
-          imageUrl: publicUrl,
-          ethnicity: selectedEthnicity,
-          concept: selectedConcept,
-          faceReferenceUrl: uploadedFaceUrl,
-          fabricType: selectedFabric,
-        })
+            imageUrl: publicUrl,
+            gender: selectedGender,
+            ethnicity: selectedEthnicity,
+            concept: selectedConcept,
+            fabricType: selectedFabric,
+            textureDetails: extractedTexture,
+            accessories: selectedAccessories,
+            poseKey: selectedPose,
+            faceReferenceUrl: useSavedModel && faceReferenceUrl ? faceReferenceUrl : uploadedFaceUrl,
+            backImageUrl: uploadedBackUrl,
+          }),
       })
 
       setProgressStep(3)
 
-      const resultData = await res.json()
+      const responseData = await response.json()
 
-      if (!res.ok) {
-        throw new Error(resultData.error || "Üretim hatası")
+      if (!response.ok) {
+        throw new Error(responseData.error || "Üretim hatası")
       }
 
-      setResults(resultData.images)
-      setGenerationId(resultData.generationId)
+      setResults(responseData.images)
+      setGenerationId(responseData.generationId)
       setProgress(100)
       setIsGenerating(false)
       setProgressStep(4)
@@ -209,7 +309,7 @@ export default function StudioPage() {
       toast.success("Tebrikler! 4 adet profesyonel katalog görseliniz hazır.", {
         position: 'top-center',
         className: 'bg-zinc-900 border-zinc-800 text-white'
-      })
+      });
       
     } catch (err: any) {
       toast.error("Hata Oluştu", { 
@@ -235,6 +335,7 @@ export default function StudioPage() {
   }
 
   return (
+
     <main className="flex min-h-[calc(100vh-4rem)] flex-col items-center justify-center p-4 sm:p-8 bg-white dark:bg-[#0A0A0A]">
       <div className="w-full max-w-4xl text-center mb-8">
         <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50 mb-3">
@@ -277,7 +378,8 @@ export default function StudioPage() {
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <ImageIcon className="w-4 h-4 text-zinc-500" />
-                    <Label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Garment Image</Label>
+                    <Label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Garment Images</Label>
+                    <span className="text-[10px] text-zinc-400 ml-auto">Ön ve arka görsel zorunludur</span>
                   </div>
                   
                   <div className={`relative border-2 border-dashed rounded-2xl p-6 text-center flex flex-col items-center justify-center transition-all duration-300 bg-zinc-50 dark:bg-zinc-900/30
@@ -315,9 +417,53 @@ export default function StudioPage() {
                       required
                     />
                   </div>
+
+                  {/* Arka Açı — ZORUNLU */}
+                  <div>
+                    {backImageUrl ? (
+                      <div className="flex items-center gap-3 mt-2 p-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl border border-emerald-200 dark:border-emerald-800">
+                        <div className="relative w-12 h-12 rounded-lg overflow-hidden shrink-0">
+                          <Image src={backImageUrl} alt="Back angle" fill className="object-cover" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300 truncate">{backFile?.name}</p>
+                          <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">✓ Arka açı eklendi</p>
+                        </div>
+                        <button type="button" onClick={removeBackFile} className="text-xs text-red-400 hover:text-red-500 font-medium shrink-0 pr-1">Kaldır</button>
+                      </div>
+                    ) : (
+                      <label htmlFor="back-upload" className="flex items-center gap-2 cursor-pointer mt-2 text-xs group">
+                        <span className="w-7 h-7 rounded-lg border-2 border-dashed border-red-300 dark:border-red-700 group-hover:border-violet-400 flex items-center justify-center transition-colors">
+                          <UploadCloud className="w-3.5 h-3.5 text-red-400 group-hover:text-violet-500" />
+                        </span>
+                        <span className="text-red-500 dark:text-red-400 font-medium">Arka açı görseli ekle <span className="text-zinc-400 font-normal">(zorunlu — sırt dekoltesi, arka baskı vb.)</span></span>
+                      </label>
+                    )}
+                    <Input id="back-upload" type="file" accept="image/*" className="hidden" onChange={handleBackFileUpload} />
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  {/* Select Gender */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <User className="w-4 h-4 text-zinc-500" />
+                      <Label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Model Gender</Label>
+                    </div>
+                    <Select value={selectedGender || ""} onValueChange={(val) => setSelectedGender(val as Gender)} required>
+                      <SelectTrigger className="w-full h-12 bg-zinc-50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 rounded-xl focus:ring-violet-500">
+                        <SelectValue placeholder="Select gender..." />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl border-zinc-200 dark:border-zinc-800 z-50">
+                        {Object.entries(GENDER_CONFIG).map(([key, config]) => (
+                          <SelectItem key={key} value={key} className="cursor-pointer">
+                            {config.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   {/* Select Ethnicity */}
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
@@ -379,39 +525,116 @@ export default function StudioPage() {
                   </Select>
                 </div>
 
+                {/* Pose Reference */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <PersonStanding className="w-4 h-4 text-zinc-500" />
+                    <Label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Model Pose <span className="text-xs font-normal text-zinc-400">(Optional)</span></Label>
+                  </div>
+                  <Select value={selectedPose} onValueChange={(val) => setSelectedPose(val)}>
+                    <SelectTrigger className="w-full h-12 bg-zinc-50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 rounded-xl focus:ring-violet-500">
+                      <SelectValue placeholder="Select a pose..." />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl border-zinc-200 dark:border-zinc-800 z-50">
+                      {Object.entries(POSE_CONFIG).map(([key, config]) => (
+                        <SelectItem key={key} value={key} className="cursor-pointer">
+                          {config.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Accessories (Text) */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-zinc-500" />
+                    <Label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Styling & Accessories <span className="text-xs font-normal text-zinc-400">(Optional)</span></Label>
+                  </div>
+                  <Input 
+                    placeholder="e.g. black sunglasses, silver hoop earrings, leather bag..." 
+                    value={selectedAccessories} 
+                    onChange={(e) => setSelectedAccessories(e.target.value)} 
+                    className="h-12 bg-zinc-50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 rounded-xl focus:ring-violet-500"
+                  />
+                </div>
+
                 {/* Face Reference (Opsiyonel) */}
                 <div className="space-y-3 pt-4 border-t border-zinc-100 dark:border-zinc-800/50">
                   <div className="flex items-center gap-2">
                     <UserCircle className="w-4 h-4 text-zinc-500" />
                     <Label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Consistent Model Face <span className="text-xs font-normal text-zinc-400">(Optional)</span></Label>
                   </div>
-                  <p className="text-xs text-zinc-500">Upload a face photo to keep the same model identity across all generations. Extra credits apply.</p>
-                  <div className="relative border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl p-4 hover:border-violet-400 transition-colors cursor-pointer">
-                    {facePreviewUrl ? (
-                      <div className="flex items-center gap-3">
-                        <Image src={facePreviewUrl} alt="Face" width={48} height={48} className="rounded-full object-cover w-12 h-12" />
-                        <div>
-                          <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{faceFile?.name}</p>
-                          <button type="button" onClick={() => { setFaceFile(null); setFacePreviewUrl(null); setFaceReferenceUrl(null) }} className="text-xs text-red-500 hover:text-red-400">
-                            Remove
-                          </button>
-                        </div>
+                  <p className="text-xs text-zinc-500">Keep the same model identity across all generations. Extra credits apply.</p>
+                  
+                  {savedModels.length > 0 && (
+                    <div className="flex bg-zinc-100 dark:bg-zinc-800 p-1 rounded-lg mb-2">
+                      <button 
+                        type="button"
+                        onClick={() => { setUseSavedModel(false); setFaceReferenceUrl(null); }}
+                        className={`flex-1 text-xs font-semibold py-1.5 rounded-md transition-colors ${!useSavedModel ? 'bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-white' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
+                      >
+                        Upload New
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => { setUseSavedModel(true); setFaceFile(null); setFacePreviewUrl(null); }}
+                        className={`flex-1 text-xs font-semibold py-1.5 rounded-md transition-colors ${useSavedModel ? 'bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-white' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
+                      >
+                        Saved Models
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="relative border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl p-4 hover:border-violet-400 transition-colors cursor-pointer min-h-[90px] flex flex-col justify-center">
+                    
+                    {useSavedModel ? (
+                      <div className="w-full">
+                        <Select value={faceReferenceUrl || ""} onValueChange={(val) => setFaceReferenceUrl(val)}>
+                          <SelectTrigger className="w-full bg-transparent border-0 ring-0 focus:ring-0 shadow-none">
+                            <SelectValue placeholder="Select a saved model..." />
+                          </SelectTrigger>
+                          <SelectContent className="rounded-xl border-zinc-200 dark:border-zinc-800 z-50 max-h-48">
+                            {savedModels.map((m) => (
+                              <SelectItem key={m.id} value={m.face_image_url} className="cursor-pointer">
+                                <div className="flex items-center gap-3">
+                                  <Image src={m.face_image_url} alt={m.model_name} width={24} height={24} className="rounded-full object-cover w-6 h-6 border border-zinc-200 dark:border-zinc-700" />
+                                  <span>{m.model_name}</span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                     ) : (
-                      <label htmlFor="face-upload" className="flex items-center gap-3 cursor-pointer">
-                        <div className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
-                          <UserCircle className="w-5 h-5 text-zinc-400" />
-                        </div>
-                        <span className="text-sm text-zinc-500">Click to upload face reference</span>
-                      </label>
+                      <>
+                        {facePreviewUrl ? (
+                          <div className="flex items-center gap-3">
+                            <Image src={facePreviewUrl} alt="Face" width={48} height={48} className="rounded-full object-cover w-12 h-12" />
+                            <div>
+                              <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{faceFile?.name}</p>
+                              <button type="button" onClick={() => { setFaceFile(null); setFacePreviewUrl(null); setFaceReferenceUrl(null) }} className="text-xs text-red-500 hover:text-red-400">
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <label htmlFor="face-upload" className="flex items-center gap-3 cursor-pointer">
+                            <div className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
+                              <UserCircle className="w-5 h-5 text-zinc-400" />
+                            </div>
+                            <span className="text-sm text-zinc-500">Click to upload face reference</span>
+                          </label>
+                        )}
+                        <Input
+                          id="face-upload"
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleFaceUpload}
+                        />
+                      </>
                     )}
-                    <Input
-                      id="face-upload"
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleFaceUpload}
-                    />
                   </div>
                 </div>
               </div>
@@ -420,7 +643,7 @@ export default function StudioPage() {
               <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800/50 mt-4">
                 <button
                   type="submit"
-                  disabled={!file || !selectedEthnicity || !selectedConcept}
+                  disabled={!file || !backFile || !selectedEthnicity || !selectedConcept}
                   className="w-full h-12 flex items-center justify-center gap-2 bg-gradient-to-r from-fuchsia-500 to-violet-500 hover:from-fuchsia-600 hover:to-violet-600 text-white text-sm font-bold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg disabled:shadow-none"
                 >
                   <Sparkles className="w-4 h-4" />
@@ -482,38 +705,13 @@ export default function StudioPage() {
                                src={img.image_url}
                                alt={`Pose ${i + 1}`}
                                fill
-                               className="object-cover group-hover:scale-110 transition-transform duration-500"
+                               className="object-cover group-hover:scale-[1.03] transition-transform duration-500"
                              />
-                             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-2 gap-1">
-                               <p className="text-[10px] font-medium text-white tracking-widest uppercase">Variant {i + 1}</p>
-                               <button
-                                 type="button"
-                                 onClick={async () => {
-                                   if (!generationId) return
-                                   try {
-                                     const res = await fetch('/api/refund', {
-                                       method: 'POST',
-                                       headers: { 'Content-Type': 'application/json' },
-                                       body: JSON.stringify({ generationId, reason: 'Defective image reported by user' })
-                                     })
-                                     const data = await res.json()
-                                     if (res.ok) {
-                                       toast.success(data.message || 'Kredi iade edildi')
-                                     } else {
-                                       toast.error(data.error || 'İade başarısız')
-                                     }
-                                   } catch { toast.error('İade isteği gönderilemedi') }
-                                 }}
-                                 className="flex items-center gap-1 text-[9px] text-red-300 hover:text-red-200 transition-colors"
-                               >
-                                 <Flag className="w-3 h-3" />
-                                 Report Defective
-                               </button>
-                             </div>
                            </div>
                         ))}
                      </div>
                   </div>
+
                 </div>
               )}
             </div>

@@ -1,5 +1,13 @@
 export type Ethnicity = 'slavic' | 'middle_eastern' | 'european' | 'turkish'
-export type Concept = 'minimal_studio' | 'street_fashion' | 'luxury_showroom'
+export type Concept = 
+  // Minimal Studio presets
+  | 'minimal_white' | 'minimal_wood' | 'minimal_silver' | 'minimal_botanical' | 'minimal_concrete'
+  // Street Fashion presets
+  | 'street_paris' | 'street_tokyo' | 'street_newyork' | 'street_london' | 'street_sunset'
+  // Luxury Showroom presets
+  | 'luxury_leather' | 'luxury_marble' | 'luxury_glass' | 'luxury_gold' | 'luxury_velvet'
+
+export type Gender = 'female' | 'male' | 'unisex'
 export type GenerationStatus = 'pending' | 'processing' | 'completed' | 'failed'
 export type FabricType = 'cotton' | 'denim' | 'silk' | 'knit' | 'leather' | 'linen' | 'polyester'
 
@@ -24,6 +32,7 @@ export interface Generation {
   original_image_url: string
   ethnicity: Ethnicity
   concept: Concept
+  gender: Gender
   status: GenerationStatus
   credits_used: number
   created_at: string
@@ -39,6 +48,15 @@ export interface GeneratedImage {
   created_at: string
 }
 
+export interface SavedModel {
+  id: string
+  user_id: string
+  model_name: string
+  face_image_url: string
+  created_at: string
+}
+
+
 export interface CreditTransaction {
   id: string
   user_id: string
@@ -48,63 +66,124 @@ export interface CreditTransaction {
   created_at: string
 }
 
-// Fal.ai prompt yapılandırması
+// Fal.ai / FASHN prompt yapılandırması
+export const GENDER_CONFIG: Record<Gender, { label: string; promptModifier: string }> = {
+  female: { label: 'Kadın (Female)', promptModifier: 'beautiful female' },
+  male: { label: 'Erkek (Male)', promptModifier: 'handsome male' },
+  unisex: { label: 'Unisex / Androgynous', promptModifier: 'stylish androgynous' }
+}
+
 export const ETHNICITY_CONFIG: Record<Ethnicity, { label: string; modelPrompt: string }> = {
   slavic: {
     label: 'Slavic / Russian',
-    modelPrompt: 'beautiful slavic female model, natural pale skin with subtle pores, light expressive eyes, realistic facial symmetry'
+    modelPrompt: 'slavic model, natural pale skin with subtle pores, light expressive eyes, realistic facial symmetry'
   },
   middle_eastern: {
     label: 'Middle Eastern / Arab',
-    modelPrompt: 'striking middle eastern female model, natural olive skin texture, dark hair, authentic elegant features, real person'
+    modelPrompt: 'middle eastern model, natural olive skin texture, dark hair, authentic elegant features, real person'
   },
   european: {
     label: 'European / Western',
-    modelPrompt: 'beautiful western european female model, natural skin texture, everyday professional look, candid'
+    modelPrompt: 'western european model, natural skin texture, everyday professional look, candid'
   },
   turkish: {
     label: 'Turkish / Local',
-    modelPrompt: 'beautiful turkish female model, genuine mediterranean features, warm natural skin tone with slight imperfections'
+    modelPrompt: 'turkish model, genuine mediterranean features, warm natural skin tone with slight imperfections'
   }
 }
 
 export const CONCEPT_CONFIG: Record<Concept, { label: string; bgPrompt: string }> = {
-  minimal_studio: {
-    label: 'Minimal Stüdyo',
-    bgPrompt: 'clean soft grey studio background, professional softbox lighting, subtle physical shadows on the floor, Vogue editorial style'
+  // Minimal Studio
+  minimal_white: {
+    label: 'Studio - Pure White',
+    bgPrompt: 'clean pure white cyclorama studio background, professional softbox lighting, subtle physical shadows on the floor, Vogue editorial style'
   },
-  street_fashion: {
-    label: 'Street Fashion',
-    bgPrompt: 'blurred city street background, shallow depth of field, bokeh, beautiful natural sunlight, candid lifestyle fashion shot'
+  minimal_wood: {
+    label: 'Studio - Wooden Stool',
+    bgPrompt: 'clean photography studio, aesthetic simple wooden stool prop, soft warm lighting, minimalist fashion aesthetic'
   },
-  luxury_showroom: {
-    label: 'Luxury Showroom',
-    bgPrompt: 'out-of-focus luxury boutique interior background, warm elegant ambient lighting, cinematic depth, premium fashion aesthetic'
+  minimal_silver: {
+    label: 'Studio - Silver Podium',
+    bgPrompt: 'modern fashion studio, sleek silver metallic podium in background, cool softbox lighting, high-end commercial style'
+  },
+  minimal_botanical: {
+    label: 'Studio - Botanical',
+    bgPrompt: 'minimalist light grey studio background, large elegant monstera plant leaves softly framing the background, natural indirect sunlight'
+  },
+  minimal_concrete: {
+    label: 'Studio - Raw Concrete',
+    bgPrompt: 'brutalist fashion studio background, raw textured concrete wall, dramatic directional lighting, edgy minimalist aesthetic'
+  },
+  
+  // Street Fashion
+  street_paris: {
+    label: 'Street - Parisian Cafe',
+    bgPrompt: 'blurred Parisian boulevard background, classic French cafe exterior, natural daylight, candid street fashion editorial, bokeh'
+  },
+  street_tokyo: {
+    label: 'Street - Tokyo Neon',
+    bgPrompt: 'blurred Tokyo street at night, vibrant neon lights glowing in the background, cinematic cyberpunk aesthetic, wet asphalt reflections'
+  },
+  street_newyork: {
+    label: 'Street - NYC Crosswalk',
+    bgPrompt: 'out-of-focus New York city crosswalk background, yellow cabs in distance, daytime urban hustle, 35mm street photography style'
+  },
+  street_london: {
+    label: 'Street - London Classic',
+    bgPrompt: 'blurred classic London brick architecture background, overcast soft diffused lighting, elegant European street style'
+  },
+  street_sunset: {
+    label: 'Street - Sunset Boulevard',
+    bgPrompt: 'blurred palm tree lined boulevard at golden hour, warm glowing sunset lighting catching the hair, coastal street fashion'
+  },
+  
+  // Luxury Showroom
+  luxury_leather: {
+    label: 'Luxury - Leather Lounge',
+    bgPrompt: 'out-of-focus premium luxury lounge, dark elegant chesterfield leather sofa in background, warm moody spotlighting, high-end boutique'
+  },
+  luxury_marble: {
+    label: 'Luxury - Marble Gallery',
+    bgPrompt: 'luxury fashion showroom interior, expansive white marble floors and columns, bright elegant ambient lighting, premium fashion aesthetic'
+  },
+  luxury_glass: {
+    label: 'Luxury - Glass Palace',
+    bgPrompt: 'modern architectural glass interior background, contemporary luxury showroom, huge windows with city view, sleek clean lines'
+  },
+  luxury_gold: {
+    label: 'Luxury - Gold Accents',
+    bgPrompt: 'high-end boutique interior, warm lighting, elegant brushed brass and gold clothing racks in background, luxurious retail space'
+  },
+  luxury_velvet: {
+    label: 'Luxury - Velvet Drapes',
+    bgPrompt: 'elegant showroom backdrop with heavy dark red velvet curtains, cinematic moody lighting, haute couture fitting room atmosphere'
   }
 }
 
-export const POSE_VARIATIONS = [
-  'standing front view, hands at sides',
-  'standing front view, one hand on hip',
-  'slight three-quarter turn, looking at camera',
-  'walking pose, mid-stride, confident',
-  'standing with crossed arms, smiling',
-  'side profile view, looking over shoulder',
-  'leaning against wall, casual pose',
-  'sitting on high stool, legs crossed',
-  'standing back view, looking over shoulder',
-  'dynamic walking pose, hair flowing',
-  'standing with hand in pocket, relaxed',
-  'full body front view, slight smile',
-  'three-quarter view from left side',
-  'three-quarter view from right side',
-  'standing with one foot forward, editorial pose',
-  'close-up upper body, detailed fabric view',
-  'standing in doorway, natural lighting',
-  'seated pose, elegant posture',
-  'walking towards camera, confident stride',
-  'standing back view, full garment display'
-]
+
+export const POSE_CONFIG: Record<string, { label: string; poseUrl: string | null }> = {
+  auto: { 
+    label: '✨ Bana Bırak (Auto)', 
+    poseUrl: null 
+  },
+  hands_in_pockets: { 
+    label: 'Eller Cepte (Hands in Pockets)', 
+    poseUrl: 'https://texstudio-ai.vercel.app/poses/hands_in_pocket.jpg' // Lütfen buraya gerçek poz resimlerini ekleyin
+  },
+  dynamic_walk: { 
+    label: 'Dinamik Yürüyüş (Dynamic Walk)', 
+    poseUrl: 'https://texstudio-ai.vercel.app/poses/dynamic_walk.jpg'
+  },
+  looking_back: { 
+    label: 'Geriye Bakış (Looking Back)', 
+    poseUrl: 'https://texstudio-ai.vercel.app/poses/looking_back.jpg'
+  },
+  hands_on_hips: { 
+    label: 'Eller Belde (Hands on Hips)', 
+    poseUrl: 'https://texstudio-ai.vercel.app/poses/hands_on_hips.jpg'
+  }
+}
+
 
 // ─── P2: Physics-Aware Draping (Enhanced) ───
 // 3 katmanlı prompt sistemi:

@@ -12,7 +12,23 @@
 **Temel Değer:** 1 ürün fotoğrafından → 4 profesyonel katalog görseli ($0.30/oturum).  
 **Pipeline:** FASHN.ai `product-to-model` tek çağrı (düz zemin ürün → manken üzerinde profesyonel görsel).  
 **Tutarlı Manken:** `face_reference` ile aynı yüz kimliği tüm üretimlerde korunur.  
-**Kumasch Fizik:** 7 kumasch tipi için Physics-Aware Draping prompt katmanı.
+**Kumaş Fizik:** 7 kumaş tipi için Physics-Aware Draping prompt katmanı.
+
+---
+
+## 📅 V3 EKLENEN ÖZELLİKLER & ROADMAP
+
+**Geliştirme Sırası (Aktif):**
+1. **Model Cinsiyet Seçimi (Gender):** Kullanıcı "Kadın/Erkek/Unisex" seçebilecek, bu FASHN model promptuna "male/female model" olarak eklenecektir.
+2. **Kayıtlı Manken Yüzleri (Saved Models):** Kullanıcı manken yüzlerini DB'ye kaydedip açılır menüden seçebilecek (user_id'ye bağlı).
+3. **Mekan Temaları (15 Preset) ve Aksesuar Ekleme:** 3 konsept x 5 lokasyon ön tanımlı mekanlar ve sadece prompt ile takı/gözlük aksesuar girdisi alınacak.
+4. **Poz Kütüphanesi ve "Bana Bırak" (Pose):** FASHN API `pose_image_url` destekli, hazır ikonik pozlar galerisi ve otomatik seçenek.
+5. **Magic Edit (Boyut/Kesim Düzeltme):** Üretilen görsel üzerinden metin komutu ("kolları uzat", "crop top yap") ile inpainting varyasyonu alma.
+
+**Gelecek Yol Haritası (Park Edildi):**
+- **Çoklu Ürün Yükleme (Kombin Oluşturma):** Aynı mankene Max 4 farklı parça (Üst+Alt+Ceket+Ayakkabı) giydirme.
+- **Aynı Ürünün Farklı Açılardan Yüklenmesi:** Birden çok fotoğraf referansı alarak arka, yaka detaylarını koruma.
+- **Serbest Arkaplan Obje Ekleme (Stüdyo Aksesuarları):** Özel saksı, tekli koltuk vb. promptların modele zorlanması.
 
 ---
 
@@ -134,10 +150,9 @@ CREATE TABLE public.generations (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
   original_image_url TEXT NOT NULL,
-  ethnicity TEXT NOT NULL
-    CHECK (ethnicity IN ('slavic', 'middle_eastern', 'european', 'turkish')),
-  concept TEXT NOT NULL
-    CHECK (concept IN ('minimal_studio', 'street_fashion', 'luxury_showroom')),
+  ethnicity TEXT NOT NULL,
+  concept TEXT NOT NULL,
+  gender TEXT DEFAULT 'female',
   status TEXT NOT NULL DEFAULT 'pending'
     CHECK (status IN ('pending', 'processing', 'completed', 'failed')),
   credits_used INTEGER NOT NULL DEFAULT 20,
@@ -164,11 +179,21 @@ CREATE TABLE public.credit_transactions (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 5. RLS Politikaları
+-- 5. Kayıtlı Mankenler (Saved Models) tablosu (V3)
+CREATE TABLE public.saved_models (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  model_name TEXT NOT NULL,
+  face_image_url TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 6. RLS Politikaları
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.generations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.generated_images ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.credit_transactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.saved_models ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users can view own profile"
   ON public.profiles FOR SELECT USING (auth.uid() = id);
@@ -191,7 +216,14 @@ CREATE POLICY "Users can view own images"
 CREATE POLICY "Users can view own transactions"
   ON public.credit_transactions FOR SELECT USING (auth.uid() = user_id);
 
--- 6. Yeni kullanıcı kayıt olduğunda otomatik profil oluştur
+CREATE POLICY "Users can view own saved models"
+  ON public.saved_models FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own saved models"
+  ON public.saved_models FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can delete own saved models"
+  ON public.saved_models FOR DELETE USING (auth.uid() = user_id);
+
+-- 7. Yeni kullanıcı kayıt olduğunda otomatik profil oluştur
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -503,74 +535,98 @@ export const POSE_VARIATIONS = [
 
 ---
 
-### ADIM 4: Fal.ai API Entegrasyonu
+### ADIM 4: FASHN.ai Direct API Entegrasyonu
 
-**`lib/fal.ts`:**
+**`lib/fashn.ts`:**
 ```typescript
-import { fal } from '@fal-ai/client'
+const FASHN_API_BASE = 'https://api.fashn.ai/v1'
 
-fal.config({ credentials: process.env.FAL_KEY! })
-
-// ─── NEGATIVE PROMPT (Anatomik hata engelleyici) ───
-const NEGATIVE_PROMPT = [
-  'deformed fingers', 'extra limbs', 'bad anatomy', 'fused fingers',
-  'plastic skin', 'poreless skin', 'waxy skin', 'dead eyes',
-  'extra buttons', 'extra pockets', 'CGI render', 'illustration'
-].join(', ')
-
-// ─── VTON v1.6 — Kıyafeti mankene giydirme (864x1296) ───
-export async function virtualTryOn(
-  garmentImageUrl: string,
-  modelImageUrl: string
-): Promise<string> {
-  const result = await fal.subscribe('fal-ai/fashn/tryon/v1.6', {
-    input: {
-      model_image: modelImageUrl,
-      garment_image: garmentImageUrl,
-      category: 'auto',
-    },
-    logs: true,
-  })
-  return (result.data as any).images[0].url
+function getApiKey(): string {
+  const key = process.env.FASHN_API_KEY
+  if (!key) throw new Error('FASHN_API_KEY tanımlı değil')
+  return key
 }
 
-// ─── Flux Pro — Nötr baz model üretimi ───
-// VTON'a girdi olacak dikişsiz, sade kıyafetli manken üretir.
-export async function generateBaseModel(
-  ethnicityPrompt: string,
-  conceptPrompt: string,
-  poseDescription: string
-): Promise<string> {
-  const prompt = `RAW candid fashion photography, Fujifilm XT4, 35mm lens, natural available light, visible skin pores, real human. ${ethnicityPrompt}, wearing a tight-fitting seamless plain neutral grey tank top and simple dark trousers. Absolutely NO buttons, NO pockets, NO zippers, NO seams visible on upper body. ${poseDescription}. ${conceptPrompt}. Hyper-realistic, editorial quality, subtle depth of field.`
-
-  const result = await fal.subscribe('fal-ai/flux-pro', {
-    input: {
-      prompt,
-      num_inference_steps: 28,
-      guidance_scale: 2.0,
-      image_size: 'portrait_4_3',
-      safety_tolerance: '2',
+async function fashnPost(endpoint: string, body: Record<string, any>): Promise<string> {
+  const res = await fetch(`${FASHN_API_BASE}${endpoint}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${getApiKey()}`,
     },
-    logs: true,
+    body: JSON.stringify(body),
   })
-  return (result.data as any).images[0].url
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }))
+    throw new Error(`FASHN API Error (${res.status}): ${err.detail}`)
+  }
+  return (await res.json()).id // prediction ID
+}
+
+async function fashnPoll(predictionId: string, maxWaitMs = 300_000): Promise<string[]> {
+  const startTime = Date.now()
+  while (Date.now() - startTime < maxWaitMs) {
+    const res = await fetch(`${FASHN_API_BASE}/status/${predictionId}`, {
+      headers: { 'Authorization': `Bearer ${getApiKey()}` },
+    })
+    const data = await res.json()
+    if (data.status === 'completed') return data.output as string[]
+    if (data.status === 'failed') throw new Error(`Failed: ${data.error}`)
+    await new Promise(r => setTimeout(r, 3000))
+  }
+  throw new Error('Timeout')
+}
+
+// ⭐ Ana fonksiyon — eski 2 aşamalı pipeline'ın yerini aldı
+export async function productToModel(options: {
+  productImageUrl: string
+  prompt?: string
+  faceReferenceUrl?: string
+  numImages?: number
+  aspectRatio?: string
+  resolution?: '1k' | '4k'
+}): Promise<string[]> {
+  const inputs: Record<string, any> = {
+    product_image: options.productImageUrl,
+    num_images: options.numImages || 4,
+    aspect_ratio: options.aspectRatio || '3:4',
+    resolution: options.resolution || '1k',
+    output_format: 'jpeg',
+  }
+  const safetyPrompt = 'realistic skin texture, natural lighting, fashion editorial'
+  inputs.prompt = options.prompt ? `${options.prompt}. ${safetyPrompt}` : safetyPrompt
+  if (options.faceReferenceUrl) {
+    inputs.face_reference = options.faceReferenceUrl
+    inputs.face_reference_mode = 'match_base'
+  }
+  const predictionId = await fashnPost('/run', { model_name: 'product-to-model', inputs })
+  return fashnPoll(predictionId)
+}
+
+// Ghost Mannequin için
+export async function removeBackground(imageUrl: string): Promise<string[]> {
+  const predictionId = await fashnPost('/run', {
+    model_name: 'background-remove',
+    inputs: { image: imageUrl, output_format: 'png' },
+  })
+  return fashnPoll(predictionId)
 }
 ```
 
 ---
 
-### ADIM 5: Ana API Endpoint — Görsel Üretimi
+### ADIM 5: Ana API Endpoint — FASHN product-to-model
 
 **`app/api/generate/route.ts`:**
 ```typescript
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
-import { generateCatalogImage } from '@/lib/fal'
-import { ETHNICITY_CONFIG, CONCEPT_CONFIG, POSE_VARIATIONS } from '@/types'
+import { productToModel } from '@/lib/fashn'
+import { ETHNICITY_CONFIG, CONCEPT_CONFIG } from '@/types'
 import type { Ethnicity, Concept } from '@/types'
 
-export const maxDuration = 300 // 5 dakika timeout
+export const maxDuration = 300
 
 export async function POST(req: NextRequest) {
   try {
@@ -578,79 +634,43 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { imageUrl, ethnicity, concept } = await req.json() as {
-      imageUrl: string
-      ethnicity: Ethnicity
-      concept: Concept
-    }
+    const { imageUrl, ethnicity, concept, faceReferenceUrl } = await req.json()
 
-    // 1. Kredi kontrolü ve düşme (atomik)
+    // Kredi: face_reference kullanılıyorsa ek maliyet
+    const creditCost = faceReferenceUrl ? 16 : 4
     const { data: hasCredits } = await supabaseAdmin.rpc('deduct_credits', {
-      p_user_id: user.id,
-      p_amount: 20
+      p_user_id: user.id, p_amount: creditCost
     })
-    if (!hasCredits) {
-      return NextResponse.json({ error: 'Yetersiz kredi. Lütfen kredi satın alın.' }, { status: 402 })
-    }
+    if (!hasCredits) return NextResponse.json({ error: 'Yetersiz kredi' }, { status: 402 })
 
-    // 2. Generation kaydı oluştur
-    const { data: generation, error: genError } = await supabaseAdmin
+    // Generation kaydı
+    const { data: generation } = await supabaseAdmin
       .from('generations')
-      .insert({
-        user_id: user.id,
-        original_image_url: imageUrl,
-        ethnicity,
-        concept,
-        status: 'processing',
-        credits_used: 20
-      })
-      .select()
-      .single()
+      .insert({ user_id: user.id, original_image_url: imageUrl, ethnicity, concept, status: 'processing', credits_used: creditCost })
+      .select().single()
 
-    if (genError) throw genError
-
-    // 3. 20 varyasyon üret (paralel gruplar halinde)
-    const ethnicityPrompt = ETHNICITY_CONFIG[ethnicity].modelPrompt
-    const conceptPrompt = CONCEPT_CONFIG[concept].bgPrompt
-    const batchSize = 4
-
-    const generatedImages: { image_url: string; variation_index: number; pose_description: string }[] = []
-
-    for (let i = 0; i < POSE_VARIATIONS.length; i += batchSize) {
-      const batch = POSE_VARIATIONS.slice(i, i + batchSize)
-      const results = await Promise.allSettled(
-        batch.map(async (pose, batchIndex) => {
-          const index = i + batchIndex
-          const resultUrl = await generateCatalogImage(imageUrl, ethnicityPrompt, conceptPrompt, pose)
-          return { image_url: resultUrl, variation_index: index, pose_description: pose }
-        })
-      )
-      results.forEach(r => {
-        if (r.status === 'fulfilled') generatedImages.push(r.value)
-      })
-    }
-
-    // 4. Sonuçları kaydet
-    if (generatedImages.length > 0) {
-      await supabaseAdmin.from('generated_images').insert(
-        generatedImages.map(img => ({ ...img, generation_id: generation.id }))
-      )
-    }
-
-    // 5. Status güncelle
-    await supabaseAdmin
-      .from('generations')
-      .update({ status: generatedImages.length > 0 ? 'completed' : 'failed' })
-      .eq('id', generation.id)
-
-    return NextResponse.json({
-      generationId: generation.id,
-      images: generatedImages,
-      totalGenerated: generatedImages.length
+    // ⭐ TEK ÇAĞRI — 4 görsel üret
+    const prompt = `${ETHNICITY_CONFIG[ethnicity].modelPrompt}, ${CONCEPT_CONFIG[concept].bgPrompt}`
+    const imageUrls = await productToModel({
+      productImageUrl: imageUrl,
+      prompt,
+      faceReferenceUrl,
+      numImages: 4,
+      aspectRatio: '3:4',
+      resolution: '1k',
     })
 
+    // Kaydet
+    const generatedImages = imageUrls.map((url, i) => ({
+      image_url: url, variation_index: i,
+      pose_description: `FASHN variation ${i + 1}`,
+      generation_id: generation.id,
+    }))
+    await supabaseAdmin.from('generated_images').insert(generatedImages)
+    await supabaseAdmin.from('generations').update({ status: 'completed' }).eq('id', generation.id)
+
+    return NextResponse.json({ generationId: generation.id, images: generatedImages, totalGenerated: imageUrls.length })
   } catch (error: any) {
-    console.error('Generation error:', error)
     return NextResponse.json({ error: error.message || 'Üretim hatası' }, { status: 500 })
   }
 }

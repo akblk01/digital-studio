@@ -2,89 +2,163 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { productToModel } from '@/lib/fashn'
-import { ETHNICITY_CONFIG, CONCEPT_CONFIG, FABRIC_CONFIG } from '@/types'
-import type { Ethnicity, Concept, FabricType } from '@/types'
+import { ETHNICITY_CONFIG, CONCEPT_CONFIG, GENDER_CONFIG, FABRIC_CONFIG, POSE_CONFIG } from '@/types'
+import type { Ethnicity, Concept, Gender, FabricType } from '@/types'
 
 export const maxDuration = 300 // 5 dakika timeout
 
 export async function POST(req: NextRequest) {
   try {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
     
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const body = await req.json() as {
+    const { 
+      imageUrl, 
+      ethnicity, 
+      concept, 
+      gender,
+      fabricType, 
+      textureDetails,
+      accessories,
+      poseKey,
+      faceReferenceUrl,
+      backImageUrl         // Arka açı: sırt dekoltesi, sırt baskısı vb.
+    } = await req.json() as {
       imageUrl: string
       ethnicity: Ethnicity
       concept: Concept
-      faceReferenceUrl?: string
+      gender?: Gender
       fabricType?: FabricType
+      textureDetails?: string
+      accessories?: string
+      poseKey?: string
+      faceReferenceUrl?: string
+      backImageUrl?: string
     }
 
-    const { imageUrl, ethnicity, concept, faceReferenceUrl, fabricType } = body
+    if (!imageUrl || !ethnicity || !concept) {
+      return NextResponse.json({ error: 'Eksik parametre' }, { status: 400 })
+    }
 
-    // 1. Kredi kontrolü ve düşme (atomik)
-    // face_reference kullanılıyorsa ek maliyet: +3 kredi/görsel × 4 = +12
-    const creditCost = faceReferenceUrl ? 16 : 4
-    const { data: hasCredits, error: creditError } = await supabaseAdmin.rpc('deduct_credits', {
-      p_user_id: user.id,
-      p_amount: creditCost
-    })
+    const safeGender: Gender = gender || 'female'
+
+
+    // 1. Kullanıcı limitini kontrol et
+    // 4K üretimi 1 görsel = 2 kredi (4 görsel = 8 kredi)
+    const requiredCredits = 8
     
-    if (creditError || !hasCredits) {
-      return NextResponse.json({ error: 'Yetersiz kredi. Lütfen kredi satın alın.' }, { status: 402 })
+    const { data: user, error: userError } = await supabase.auth.getUser()
+    if (userError || !user?.user) throw new Error("Kullanıcı bulunamadı")
+    const userId = user.user.id
+
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('credits')
+      .eq('id', userId)
+      .single()
+
+    if (profileError || !profile) throw new Error("Profil bulunamadı")
+
+    if (profile.credits < requiredCredits) {
+      return NextResponse.json({ error: 'Yetersiz kredi' }, { status: 402 })
     }
 
-    // 2. Generation kaydı oluştur
-    const { data: generation, error: genError } = await supabaseAdmin
+    // 2. Krediyi düş
+    const { error: deductError } = await supabase
+      .from('profiles')
+      .update({ credits: profile.credits - requiredCredits })
+      .eq('id', userId)
+
+    if (deductError) throw new Error("Kredi düşülemedi")
+    
+    // İşlem kaydı
+    const { data: genRecord, error: genError } = await supabase
       .from('generations')
       .insert({
-        user_id: user.id,
-        original_image_url: imageUrl,
+        user_id: userId,
+        original_image_url: imageUrl, // Keep original_image_url for tracking
         ethnicity,
         concept,
+        gender: safeGender,
         status: 'processing',
-        credits_used: creditCost
+        credits_used: requiredCredits, // Update credits_used
       })
-      .select()
+      .select('id')
       .single()
 
     if (genError) throw genError
 
     // 3. FASHN.ai product-to-model — TEK API ÇAĞRISI ile 4 görsel üret
     // Eski 2 aşamalı pipeline (Flux Pro + VTON) tamamen kaldırıldı.
+    const genderPrompt = GENDER_CONFIG[safeGender].promptModifier
     const ethnicityPrompt = ETHNICITY_CONFIG[ethnicity].modelPrompt
     const conceptPrompt = CONCEPT_CONFIG[concept].bgPrompt
     const fabricConfig = fabricType ? FABRIC_CONFIG[fabricType] : null
     const drapePrompt = fabricConfig?.drapePrompt || ''
     const negativePrompt = fabricConfig?.negativePrompt || ''
-    const prompt = `${ethnicityPrompt}, ${conceptPrompt}${drapePrompt ? `. ${drapePrompt}` : ''}${negativePrompt ? `. ${negativePrompt}` : ''}`
+    
+    // STRATEGY 1: Inject dynamic texture details extracted by Vision API (e.g. "heathered melange")
+    const texturePromptSegment = textureDetails ? `. PRESERVE THIS EXACT TEXTURE: ${textureDetails}` : ''
+    const accessoriesPromptSegment = accessories ? `, wearing ${accessories}` : ''
+    
+    const prompt = `A ${genderPrompt} ${ethnicityPrompt}${accessoriesPromptSegment}, ${conceptPrompt}${drapePrompt ? `. ${drapePrompt}` : ''}${texturePromptSegment}${negativePrompt ? `. ${negativePrompt}` : ''}`
+
 
     let imageUrls: string[] = []
 
     try {
-      imageUrls = await productToModel({
-        productImageUrl: imageUrl,
-        prompt,
-        faceReferenceUrl,
-        numImages: 4,
-        aspectRatio: '3:4',
-        resolution: '1k',
-      })
+      const poseUrl = poseKey && poseKey !== 'auto' ? POSE_CONFIG[poseKey]?.poseUrl : undefined
+
+      if (backImageUrl) {
+        // ── Çift açı modu: 3 ön + 1 arka ──────────────────────────────────
+        // Paralel çağrı: her iki FASHN isteği aynı anda başlıyor.
+        const frontPromise = productToModel({
+          productImageUrl: imageUrl,
+          prompt,
+          faceReferenceUrl,
+          numImages: 3,
+          aspectRatio: '3:4',
+          resolution: '4k',
+        })
+
+        const backPrompt = `${prompt}, back view of the model showing the back of the garment`
+        const backPromise = productToModel({
+          productImageUrl: backImageUrl,
+          prompt: backPrompt,
+          faceReferenceUrl,
+          numImages: 1,
+          aspectRatio: '3:4',
+          resolution: '4k',
+        })
+
+        const [frontUrls, backUrls] = await Promise.all([frontPromise, backPromise])
+        // Arka görsel sona ekleniyor (4. fotoğraf = arka açı)
+        imageUrls = [...frontUrls, ...backUrls]
+      } else {
+        // ── Tek açı modu: 4 ön ───────────────────────────────────────────
+        const fashnOptions: any = {
+          productImageUrl: imageUrl,
+          prompt,
+          faceReferenceUrl,
+          numImages: 4,
+          aspectRatio: '3:4',
+          resolution: '4k',
+        }
+        if (poseUrl) fashnOptions.poseImageUrl = poseUrl
+        imageUrls = await productToModel(fashnOptions)
+      }
+
     } catch (apiError: any) {
       console.error('FASHN.ai API error:', apiError)
-      await supabaseAdmin.from('generations').update({ status: 'failed' }).eq('id', generation.id)
+      await supabaseAdmin.from('generations').update({ status: 'failed' }).eq('id', genRecord.id)
       return NextResponse.json({ 
         error: `Görsel üretimi başarısız: ${apiError.message || 'FASHN.ai servisi yanıt vermedi.'}` 
       }, { status: 500 })
     }
 
+
     // 4. Sonuçları kaydet
     if (imageUrls.length === 0) {
-      await supabaseAdmin.from('generations').update({ status: 'failed' }).eq('id', generation.id)
+      await supabaseAdmin.from('generations').update({ status: 'failed' }).eq('id', genRecord.id)
       return NextResponse.json({ error: 'Görsel üretimi başarısız oldu.' }, { status: 500 })
     }
 
@@ -92,7 +166,7 @@ export async function POST(req: NextRequest) {
       image_url: url,
       variation_index: index,
       pose_description: `FASHN product-to-model variation ${index + 1}`,
-      generation_id: generation.id,
+      generation_id: genRecord.id,
     }))
 
     await supabaseAdmin.from('generated_images').insert(generatedImages)
@@ -101,10 +175,10 @@ export async function POST(req: NextRequest) {
     await supabaseAdmin
       .from('generations')
       .update({ status: 'completed' })
-      .eq('id', generation.id)
+      .eq('id', genRecord.id)
 
     return NextResponse.json({
-      generationId: generation.id,
+      generationId: genRecord.id,
       images: generatedImages,
       totalGenerated: generatedImages.length
     })
