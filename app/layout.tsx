@@ -2,8 +2,9 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { Toaster } from '@/components/ui/sonner'
+import { I18nProvider } from '@/lib/i18n/context'
 
-const inter = Inter({ subsets: ['latin'] })
+const inter = Inter({ subsets: ['latin', 'cyrillic'] })
 
 export const metadata: Metadata = {
   title: 'TexStudio AI',
@@ -15,13 +16,15 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  // Proje varsayılan olarak karanlık tema (dark) ile açılır
   return (
     <html lang="tr" className="dark" style={{ colorScheme: 'dark' }}>
       <body className={`${inter.className} min-h-screen bg-background antialiased`}>
-        {children}
-        <Toaster theme="dark" position="top-center" />
+        <I18nProvider>
+          {children}
+          <Toaster theme="dark" position="top-center" />
+        </I18nProvider>
       </body>
     </html>
   )
 }
+

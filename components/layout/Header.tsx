@@ -5,14 +5,17 @@ import { useEffect, useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { Sparkles, LogOut, User, Coins, ChevronDown, LayoutDashboard, Image } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
+import { useTranslation, LOCALE_CONFIG, type Locale } from "@/lib/i18n/context"
 
 export default function Header() {
   const [user, setUser] = useState<any>(null)
   const [profile, setProfile] = useState<any>(null)
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [langOpen, setLangOpen] = useState(false)
   const router = useRouter()
   const pathname = usePathname()
   const supabase = createClient()
+  const { locale, setLocale, t } = useTranslation()
 
   useEffect(() => {
     // Auth state listener
@@ -66,32 +69,66 @@ export default function Header() {
                 className={`flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-lg transition-colors ${pathname === '/studio' ? 'text-white bg-white/10' : 'text-[#A0A0B0] hover:text-white hover:bg-white/5'}`}
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Stüdyo</span>
+                <span className="hidden sm:inline">{t('nav_studio')}</span>
               </Link>
               <Link
                 href="/gallery"
                 className={`flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-lg transition-colors ${pathname === '/gallery' ? 'text-white bg-white/10' : 'text-[#A0A0B0] hover:text-white hover:bg-white/5'}`}
               >
                 <Image className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Galeri</span>
+                <span className="hidden sm:inline">{t('nav_gallery')}</span>
               </Link>
               <Link
                 href="/billing"
                 className={`flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-lg transition-colors ${pathname === '/billing' ? 'text-white bg-white/10' : 'text-[#A0A0B0] hover:text-white hover:bg-white/5'}`}
               >
-                <span className="hidden sm:inline">Fiyatlar</span>
+                <span className="hidden sm:inline">{t('nav_pricing')}</span>
               </Link>
             </>
           ) : (
             <>
-              <Link href="/studio" className="text-sm font-medium text-[#A0A0B0] hover:text-white transition-colors px-2">Stüdyo</Link>
-              <Link href="/billing" className="text-sm font-medium text-[#A0A0B0] hover:text-white transition-colors px-2">Fiyatlar</Link>
+              <Link href="/studio" className="text-sm font-medium text-[#A0A0B0] hover:text-white transition-colors px-2">{t('nav_studio')}</Link>
+              <Link href="/billing" className="text-sm font-medium text-[#A0A0B0] hover:text-white transition-colors px-2">{t('nav_pricing')}</Link>
             </>
           )}
         </nav>
 
         {/* Right side */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+
+          {/* Dil Seçici */}
+          <div className="relative">
+            <button
+              onClick={() => setLangOpen(!langOpen)}
+              className="flex items-center gap-1.5 text-xs font-medium text-[#A0A0B0] hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg px-2 py-1.5 transition-colors"
+            >
+              <span>{LOCALE_CONFIG[locale].flag}</span>
+              <span className="hidden sm:inline uppercase">{locale}</span>
+              <ChevronDown className={`w-3 h-3 transition-transform ${langOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {langOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setLangOpen(false)} />
+                <div className="absolute right-0 top-full mt-2 w-40 bg-[#1A1A2E] border border-[#2A2A3E] rounded-xl shadow-xl z-50 overflow-hidden py-1">
+                  {(Object.keys(LOCALE_CONFIG) as Locale[]).map((loc) => (
+                    <button
+                      key={loc}
+                      onClick={() => { setLocale(loc); setLangOpen(false) }}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm transition-colors text-left ${
+                        locale === loc
+                          ? 'text-white bg-white/10 font-semibold'
+                          : 'text-[#A0A0B0] hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      <span>{LOCALE_CONFIG[loc].flag}</span>
+                      {LOCALE_CONFIG[loc].label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
           {user ? (
             <>
               {/* Kredi Göstergesi */}
