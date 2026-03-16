@@ -5,6 +5,7 @@ import Image from "next/image"
 import { createClient } from "@/lib/supabase/client"
 import { Download, Calendar, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { toast } from "sonner"
 
 export default function GalleryPage() {
   const [generations, setGenerations] = useState<any[]>([])
@@ -40,8 +41,15 @@ export default function GalleryPage() {
     fetchGenerations()
   }, [supabase])
 
-  const handleDownloadZip = (generationId: string) => {
-    window.location.href = `/api/download?generationId=${generationId}`
+  const isMobile = typeof navigator !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+
+  const handleDownloadZip = (generationId: string, images: any[]) => {
+    if (isMobile) {
+      images.forEach((img: any) => window.open(img.image_url, '_blank'))
+      toast.info('Görseller yeni sekmelerde açıldı. Uzun basarak kaydet.')
+    } else {
+      window.location.href = `/api/download?generationId=${generationId}`
+    }
   }
 
   if (loading) {
@@ -77,11 +85,11 @@ export default function GalleryPage() {
                 </div>
                 {gen.status === 'completed' && gen.generated_images?.length > 0 && (
                   <Button 
-                    onClick={() => handleDownloadZip(gen.id)}
+                    onClick={() => handleDownloadZip(gen.id, gen.generated_images)}
                     className="bg-zinc-900 hover:bg-zinc-800 text-white"
                   >
                     <Download className="w-4 h-4 mr-2" />
-                    Download All (.zip)
+                    {isMobile ? 'Görselleri Aç' : 'Download All (.zip)'}
                   </Button>
                 )}
               </div>
@@ -98,13 +106,16 @@ export default function GalleryPage() {
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                   {gen.generated_images?.sort((a: any, b: any) => a.variation_index - b.variation_index).map((img: any) => (
-                    <div key={img.id} className="relative aspect-[3/4] rounded-xl overflow-hidden bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700">
-                      <Image
-                        src={img.image_url}
-                        alt="Generated"
-                        fill
-                        className="object-cover"
-                      />
+                    <div key={img.id} className="group relative aspect-[3/4] rounded-xl overflow-hidden bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700">
+                      <Image src={img.image_url} alt="Generated" fill className="object-cover" />
+                      <a
+                        href={img.image_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 hover:bg-black/80 text-white rounded-lg p-1.5"
+                      >
+                        <Download className="w-3 h-3" />
+                      </a>
                     </div>
                   ))}
                 </div>

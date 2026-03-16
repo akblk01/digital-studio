@@ -1,44 +1,176 @@
+"use client"
+
 import Link from "next/link"
-import { Sparkles, User, Coins } from "lucide-react"
+import { useEffect, useState } from "react"
+import { useRouter, usePathname } from "next/navigation"
+import { Sparkles, LogOut, User, Coins, ChevronDown, LayoutDashboard, Image } from "lucide-react"
+import { createClient } from "@/lib/supabase/client"
 
 export default function Header() {
+  const [user, setUser] = useState<any>(null)
+  const [profile, setProfile] = useState<any>(null)
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const router = useRouter()
+  const pathname = usePathname()
+  const supabase = createClient()
+
+  useEffect(() => {
+    // Auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setUser(session?.user ?? null)
+      if (session?.user) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('credits, full_name, subscription_plan')
+          .eq('id', session.user.id)
+          .single()
+        setProfile(data)
+      } else {
+        setProfile(null)
+      }
+    })
+    return () => subscription.unsubscribe()
+  }, [supabase])
+
+  const handleSignOut = async () => {
+    setDropdownOpen(false)
+    await supabase.auth.signOut()
+    router.push('/login')
+    router.refresh()
+  }
+
+  const initials = profile?.full_name
+    ? profile.full_name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+    : user?.email?.[0]?.toUpperCase() ?? '?'
+
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-[#2A2A3E]/60 bg-[#0F0F1A]/80 backdrop-blur-xl">
+    <header className="sticky top-0 z-50 w-full border-b border-[#2A2A3E]/60 bg-[#0F0F1A]/90 backdrop-blur-xl">
       <div className="container mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+
+        {/* Logo */}
         <div className="flex items-center gap-2">
           <Link href="/" className="flex items-center gap-2 group">
             <div className="bg-gradient-to-br from-[#6C63FF] to-[#FF6584] rounded-lg p-1.5 group-hover:scale-105 transition-transform">
               <Sparkles className="h-5 w-5 text-white" />
             </div>
-            <span className="font-bold text-xl tracking-tight hidden sm:inline-block">TexStudio AI</span>
+            <span className="font-bold text-xl tracking-tight hidden sm:inline-block text-white">TexStudio AI</span>
           </Link>
         </div>
 
-        <nav className="flex items-center gap-4">
-          <Link href="/studio" className="text-sm font-medium text-[#A0A0B0] hover:text-white transition-colors">
-            Stüdyo
-          </Link>
-          <Link href="/gallery" className="text-sm font-medium text-[#A0A0B0] hover:text-white transition-colors">
-            Galeri
-          </Link>
-          <Link href="/billing" className="text-sm font-medium text-[#A0A0B0] hover:text-white transition-colors">
-            Fiyatlandırma
-          </Link>
+        {/* Nav */}
+        <nav className="flex items-center gap-1 sm:gap-4">
+          {user ? (
+            <>
+              <Link
+                href="/studio"
+                className={`flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-lg transition-colors ${pathname === '/studio' ? 'text-white bg-white/10' : 'text-[#A0A0B0] hover:text-white hover:bg-white/5'}`}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Stüdyo</span>
+              </Link>
+              <Link
+                href="/gallery"
+                className={`flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-lg transition-colors ${pathname === '/gallery' ? 'text-white bg-white/10' : 'text-[#A0A0B0] hover:text-white hover:bg-white/5'}`}
+              >
+                <Image className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Galeri</span>
+              </Link>
+              <Link
+                href="/billing"
+                className={`flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-lg transition-colors ${pathname === '/billing' ? 'text-white bg-white/10' : 'text-[#A0A0B0] hover:text-white hover:bg-white/5'}`}
+              >
+                <span className="hidden sm:inline">Fiyatlar</span>
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link href="/studio" className="text-sm font-medium text-[#A0A0B0] hover:text-white transition-colors px-2">Stüdyo</Link>
+              <Link href="/billing" className="text-sm font-medium text-[#A0A0B0] hover:text-white transition-colors px-2">Fiyatlar</Link>
+            </>
+          )}
         </nav>
 
-        <div className="flex items-center gap-4">
-          <Link 
-            href="/login" 
-            className="hidden sm:inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring border border-[#2A2A3E] bg-transparent hover:bg-[#1A1A2E] text-white h-9 px-4 py-2"
-          >
-            Giriş Yap
-          </Link>
-          <Link 
-            href="/register" 
-            className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring bg-[#6C63FF] text-white hover:bg-[#5b54d6] h-9 px-4 py-2"
-          >
-            Kayıt Ol
-          </Link>
+        {/* Right side */}
+        <div className="flex items-center gap-3">
+          {user ? (
+            <>
+              {/* Kredi Göstergesi */}
+              <Link
+                href="/billing"
+                className="hidden sm:flex items-center gap-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-full px-3 py-1.5 text-xs font-semibold transition-colors"
+              >
+                <Coins className="w-3.5 h-3.5 text-yellow-400" />
+                {profile?.credits ?? '—'}
+              </Link>
+
+              {/* Kullanıcı Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setDropdownOpen(!dropdownOpen)}
+                  className="flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full pl-1 pr-2 py-1 transition-colors"
+                >
+                  <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-fuchsia-500 to-violet-500 flex items-center justify-center text-white text-xs font-bold">
+                    {initials}
+                  </div>
+                  <ChevronDown className={`w-3.5 h-3.5 text-white/60 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {dropdownOpen && (
+                  <>
+                    {/* Backdrop */}
+                    <div className="fixed inset-0 z-40" onClick={() => setDropdownOpen(false)} />
+                    {/* Menu */}
+                    <div className="absolute right-0 top-full mt-2 w-52 bg-[#1A1A2E] border border-[#2A2A3E] rounded-2xl shadow-xl z-50 overflow-hidden py-1">
+                      <div className="px-4 py-3 border-b border-[#2A2A3E]">
+                        <p className="text-xs text-[#A0A0B0]">Giriş yapıldı</p>
+                        <p className="text-sm font-semibold text-white truncate">{user.email}</p>
+                      </div>
+                      <Link
+                        href="/profile"
+                        onClick={() => setDropdownOpen(false)}
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-[#A0A0B0] hover:text-white hover:bg-white/5 transition-colors"
+                      >
+                        <User className="w-4 h-4" />
+                        Profilim
+                      </Link>
+                      <Link
+                        href="/studio"
+                        onClick={() => setDropdownOpen(false)}
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-[#A0A0B0] hover:text-white hover:bg-white/5 transition-colors"
+                      >
+                        <LayoutDashboard className="w-4 h-4" />
+                        Stüdyo
+                      </Link>
+                      <div className="border-t border-[#2A2A3E] mt-1 pt-1">
+                        <button
+                          onClick={handleSignOut}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors text-left"
+                        >
+                          <LogOut className="w-4 h-4" />
+                          Çıkış Yap
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <Link
+                href="/login"
+                className="hidden sm:inline-flex items-center justify-center rounded-lg text-sm font-medium border border-[#2A2A3E] bg-transparent hover:bg-[#1A1A2E] text-white h-9 px-4 transition-colors"
+              >
+                Giriş Yap
+              </Link>
+              <Link
+                href="/register"
+                className="inline-flex items-center justify-center rounded-lg text-sm font-medium bg-[#6C63FF] text-white hover:bg-[#5b54d6] h-9 px-4 transition-colors"
+              >
+                Kayıt Ol
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </header>

@@ -1,36 +1,102 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { createClient } from "@/lib/supabase/client"
-import { Loader2, User, LogOut, Shield } from "lucide-react"
+import { Loader2, User, LogOut, Shield, UserCircle, Plus, Trash2, Upload } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { useRouter } from "next/navigation"
+import { toast } from "sonner"
+import Image from "next/image"
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [savedModels, setSavedModels] = useState<any[]>([])
+  const [modelName, setModelName] = useState("")
+  const [modelFile, setModelFile] = useState<File | null>(null)
+  const [modelPreview, setModelPreview] = useState<string | null>(null)
+  const [savingModel, setSavingModel] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const supabase = createClient()
   const router = useRouter()
 
   useEffect(() => {
-    async function fetchProfile() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+    fetchAll()
+  }, [])
 
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single()
+  async function fetchAll() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
 
-      if (!error && data) {
-        setProfile({ ...data, email: user.email })
-      }
-      setLoading(false)
+    const [{ data: profileData }, { data: models }] = await Promise.all([
+      supabase.from('profiles').select('*').eq('id', user.id).single(),
+      supabase.from('saved_models').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
+    ])
+
+    if (profileData) setProfile({ ...profileData, email: user.email })
+    if (models) setSavedModels(models)
+    setLoading(false)
+  }
+
+  const handleModelFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setModelFile(file)
+    setModelPreview(URL.createObjectURL(file))
+  }
+
+  const handleSaveModel = async () => {
+    if (!modelName.trim() || !modelFile) {
+      toast.error("Lütfen bir isim ve fotoğraf seçin")
+      return
     }
-    fetchProfile()
-  }, [supabase])
+    setSavingModel(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error("Giriş yapın")
+
+      // Fotoğrafı Supabase'e yükle
+      const ext = modelFile.name.split('.').pop()
+      const path = `saved-models/${user.id}/${Date.now()}.${ext}`
+      const { error: uploadErr } = await supabase.storage.from('product-images').upload(path, modelFile)
+      if (uploadErr) throw uploadErr
+
+      const { data: { publicUrl } } = supabase.storage.from('product-images').getPublicUrl(path)
+
+      // Kayıt
+      const { error: insertErr } = await supabase.from('saved_models').insert({
+        user_id: user.id,
+        name: modelName.trim(),
+        face_image_url: publicUrl,
+      })
+      if (insertErr) throw insertErr
+
+      toast.success(`"${modelName}" mankeni kaydedildi!`)
+      setModelName("")
+      setModelFile(null)
+      setModelPreview(null)
+      if (fileInputRef.current) fileInputRef.current.value = ""
+      await fetchAll()
+    } catch (err: any) {
+      toast.error(err.message || "Kayıt başarısız")
+    } finally {
+      setSavingModel(false)
+    }
+  }
+
+  const handleDeleteModel = async (modelId: string, name: string) => {
+    if (!confirm(`"${name}" mankenini silmek istediğinizden emin misiniz?`)) return
+    const { error } = await supabase.from('saved_models').delete().eq('id', modelId)
+    if (error) {
+      toast.error("Silme başarısız")
+    } else {
+      toast.success(`"${name}" silindi`)
+      setSavedModels(prev => prev.filter(m => m.id !== modelId))
+    }
+  }
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
@@ -46,50 +112,128 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-2xl">
-      <h1 className="text-3xl font-bold mb-2">My Profile</h1>
-      <p className="text-zinc-500 mb-8">Manage your account settings and personal details.</p>
+    <div className="container mx-auto px-4 py-8 max-w-4xl space-y-8">
+      <div>
+        <h1 className="text-3xl font-bold mb-1 text-zinc-900 dark:text-white">Profilim</h1>
+        <p className="text-zinc-500">Hesap ayarlarınızı ve kayıtlı mankenlerinizi yönetin.</p>
+      </div>
 
-      <Card className="bg-white dark:bg-zinc-900/40 border-zinc-200 dark:border-zinc-800 rounded-3xl overflow-hidden backdrop-blur-md">
-        <CardHeader className="bg-zinc-50 dark:bg-zinc-900/50 border-b border-zinc-200 dark:border-zinc-800">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-gradient-to-tr from-fuchsia-500 to-violet-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
-              {profile?.full_name ? profile.full_name.charAt(0).toUpperCase() : <User />}
-            </div>
-            <div>
-              <CardTitle className="text-2xl">{profile?.full_name || 'User'}</CardTitle>
-              <CardDescription>{profile?.email}</CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="pt-6 space-y-4">
-          <div className="flex flex-col gap-1">
-            <span className="text-sm text-zinc-500 font-medium">Account ID</span>
-            <span className="text-sm font-mono text-zinc-900 dark:text-zinc-100 bg-zinc-100 dark:bg-zinc-800 px-3 py-1.5 rounded-md inline-block max-w-full truncate">
-              {profile?.id}
-            </span>
-          </div>
-          <div className="flex flex-col gap-1">
-             <span className="text-sm text-zinc-500 font-medium">Joined Date</span>
-             <span className="text-sm text-zinc-900 dark:text-zinc-100">
-               {profile?.created_at ? new Date(profile.created_at).toLocaleDateString() : 'Unknown'}
-             </span>
-          </div>
-          <div className="flex flex-col gap-1">
-             <span className="text-sm text-zinc-500 font-medium">Security</span>
-             <div className="flex items-center gap-2 text-sm text-emerald-500 font-medium">
-               <Shield className="w-4 h-4" />
-               Account is secure
-             </div>
-          </div>
-        </CardContent>
-        <CardFooter className="border-t border-zinc-200 dark:border-zinc-800 pt-6">
-           <Button variant="destructive" onClick={handleSignOut} className="w-full sm:w-auto h-12 rounded-xl">
-             <LogOut className="w-4 h-4 mr-2" />
-             Sign Out
-           </Button>
-        </CardFooter>
-      </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Sol: Profil Kartı */}
+        <div className="lg:col-span-1 space-y-4">
+          <Card className="rounded-3xl overflow-hidden">
+            <CardHeader className="bg-zinc-50 dark:bg-zinc-900/50 border-b border-zinc-200 dark:border-zinc-800">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 bg-gradient-to-tr from-fuchsia-500 to-violet-500 rounded-full flex items-center justify-center text-white text-2xl font-bold shrink-0">
+                  {profile?.full_name ? profile.full_name.charAt(0).toUpperCase() : <User />}
+                </div>
+                <div className="min-w-0">
+                  <CardTitle className="text-lg truncate">{profile?.full_name || 'Kullanıcı'}</CardTitle>
+                  <CardDescription className="truncate">{profile?.email}</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-4 space-y-3">
+              <div>
+                <p className="text-xs text-zinc-500 font-medium mb-1">Kredi</p>
+                <p className="text-2xl font-bold text-zinc-900 dark:text-white">{profile?.credits ?? 0}</p>
+              </div>
+              <div>
+                <p className="text-xs text-zinc-500 font-medium mb-1">Plan</p>
+                <p className="text-sm font-semibold capitalize text-violet-500">{profile?.subscription_plan || 'Free'}</p>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-emerald-500 font-medium pt-1">
+                <Shield className="w-3.5 h-3.5" />
+                Hesap güvende
+              </div>
+            </CardContent>
+            <CardFooter className="border-t border-zinc-200 dark:border-zinc-800 pt-4">
+              <Button variant="destructive" onClick={handleSignOut} className="w-full rounded-xl">
+                <LogOut className="w-4 h-4 mr-2" />
+                Çıkış Yap
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
+
+        {/* Sağ: Kayıtlı Mankenler */}
+        <div className="lg:col-span-2 space-y-4">
+          <Card className="rounded-3xl">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <UserCircle className="w-5 h-5 text-violet-500" />
+                Kayıtlı Mankenler
+              </CardTitle>
+              <CardDescription>
+                Kaydedilen mankenler, üretim sırasında tutarlı yüz referansı olarak kullanılır.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Yeni Manken Ekleme Formu */}
+              <div className="border border-dashed border-zinc-200 dark:border-zinc-700 rounded-2xl p-4 space-y-3 bg-zinc-50 dark:bg-zinc-900/30">
+                <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Yeni Manken Ekle</p>
+                <div className="flex gap-3 items-start">
+                  {/* Fotoğraf Seçimi */}
+                  <div className="shrink-0">
+                    {modelPreview ? (
+                      <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-700">
+                        <Image src={modelPreview} alt="Preview" fill className="object-cover" />
+                      </div>
+                    ) : (
+                      <label className="flex flex-col items-center justify-center w-16 h-16 border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-xl cursor-pointer hover:border-violet-400 transition-colors bg-white dark:bg-zinc-800">
+                        <Upload className="w-5 h-5 text-zinc-400" />
+                        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleModelFileSelect} />
+                      </label>
+                    )}
+                  </div>
+                  {/* İsim + Kaydet */}
+                  <div className="flex-1 space-y-2">
+                    <Input
+                      placeholder="Manken adı (örn: Ayşe, Model 1)"
+                      value={modelName}
+                      onChange={(e) => setModelName(e.target.value)}
+                      className="h-10 rounded-xl text-sm"
+                    />
+                    <Button
+                      onClick={handleSaveModel}
+                      disabled={savingModel || !modelName.trim() || !modelFile}
+                      className="w-full h-9 text-sm bg-gradient-to-r from-fuchsia-500 to-violet-500 hover:opacity-90 text-white rounded-xl"
+                    >
+                      {savingModel ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Plus className="w-4 h-4 mr-1" /> Mankeni Kaydet</>}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Kayıtlı Liste */}
+              {savedModels.length === 0 ? (
+                <div className="text-center py-8 text-zinc-400 text-sm">
+                  Henüz kayıtlı manken bulunmuyor.
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {savedModels.map((model) => (
+                    <div key={model.id} className="group relative rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
+                      <div className="relative aspect-square">
+                        <Image src={model.face_image_url} alt={model.name} fill className="object-cover" />
+                      </div>
+                      <div className="p-2 flex items-center justify-between">
+                        <p className="text-xs font-semibold truncate text-zinc-800 dark:text-zinc-200">{model.name}</p>
+                        <button
+                          onClick={() => handleDeleteModel(model.id, model.name)}
+                          className="text-red-400 hover:text-red-500 p-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   )
 }
