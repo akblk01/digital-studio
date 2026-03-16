@@ -175,7 +175,7 @@ export default function Header() {
                         className="flex items-center gap-3 px-4 py-2.5 text-sm text-[#A0A0B0] hover:text-white hover:bg-white/5 transition-colors"
                       >
                         <User className="w-4 h-4" />
-                        Profilim
+                        {t('nav_profile')}
                       </Link>
                       <Link
                         href="/studio"
@@ -183,7 +183,7 @@ export default function Header() {
                         className="flex items-center gap-3 px-4 py-2.5 text-sm text-[#A0A0B0] hover:text-white hover:bg-white/5 transition-colors"
                       >
                         <LayoutDashboard className="w-4 h-4" />
-                        Stüdyo
+                        {t('nav_studio')}
                       </Link>
                       <div className="border-t border-[#2A2A3E] mt-1 pt-1">
                         <button
@@ -191,7 +191,7 @@ export default function Header() {
                           className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors text-left"
                         >
                           <LogOut className="w-4 h-4" />
-                          Çıkış Yap
+                          {t('nav_signout')}
                         </button>
                       </div>
                     </div>
@@ -205,13 +205,13 @@ export default function Header() {
                 href="/login"
                 className="hidden sm:inline-flex items-center justify-center rounded-lg text-sm font-medium border border-[#2A2A3E] bg-transparent hover:bg-[#1A1A2E] text-white h-9 px-4 transition-colors"
               >
-                Giriş Yap
+                {t('nav_login')}
               </Link>
               <Link
                 href="/register"
                 className="inline-flex items-center justify-center rounded-lg text-sm font-medium bg-[#6C63FF] text-white hover:bg-[#5b54d6] h-9 px-4 transition-colors"
               >
-                Kayıt Ol
+                {t('nav_register')}
               </Link>
             </>
           )}

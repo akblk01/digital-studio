@@ -19,16 +19,33 @@ export async function middleware(request: NextRequest) {
       },
     }
   )
-  const { data: { user } } = await supabase.auth.getUser()
 
   // Korumalı rotalar — giriş yapılmadan erişilemez
   const protectedPaths = ['/studio', '/gallery', '/profile', '/billing']
   const isProtected = protectedPaths.some(path => request.nextUrl.pathname.startsWith(path))
 
-  if (!user && isProtected) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/login'
-    return NextResponse.redirect(url)
+  if (isProtected) {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        const url = request.nextUrl.clone()
+        url.pathname = '/login'
+        return NextResponse.redirect(url)
+      }
+    } catch (e) {
+      // "Lock broken by another request with the 'steal' option" hatası
+      // Next.js 16 + Supabase SSR yarış koşulunda oluşur
+      // Kullanıcıyı engellememek için sessizce geç
+      console.warn('Middleware auth check failed:', (e as Error).message)
+
+      // Fallback: Cookie var mı kontrol et
+      const hasAuthCookie = request.cookies.getAll().some(c => c.name.startsWith('sb-') && c.name.includes('auth'))
+      if (!hasAuthCookie) {
+        const url = request.nextUrl.clone()
+        url.pathname = '/login'
+        return NextResponse.redirect(url)
+      }
+    }
   }
 
   return supabaseResponse

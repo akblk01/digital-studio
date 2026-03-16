@@ -123,7 +123,7 @@ export default function StudioPage() {
 
   const detectFabric = async (sourceFile: File) => {
     setIsDetectingFabric(true)
-    const toastId = toast.loading("Analyzing fabric type...")
+    const toastId = toast.loading("Kumaş türü analiz ediliyor...")
     try {
       const reader = new FileReader()
       reader.readAsDataURL(sourceFile)
@@ -141,7 +141,7 @@ export default function StudioPage() {
             if (data.textureDetails) {
               setExtractedTexture(data.textureDetails)
             }
-            toast.success(`Fabric detected: ${FABRIC_CONFIG[data.fabric as FabricType].label}`, { id: toastId })
+            toast.success(`Kumaş tespit edildi: ${FABRIC_CONFIG[data.fabric as FabricType].label}`, { id: toastId })
             return
           }
         }
@@ -230,15 +230,22 @@ export default function StudioPage() {
       }
 
       // Upload the potentially sharpened file
-      const fileExt = fileToUpload.name.split('.').pop() || 'jpg'
-      const fileName = `${Math.random()}.${fileExt}`
+      const fileExt = fileToUpload.name.split('.').pop()?.toLowerCase() || 'jpg'
+      const safeExt = ['heic', 'heif'].includes(fileExt) ? 'jpg' : fileExt
+      const fileName = `${Math.random()}.${safeExt}`
       const filePath = `uploads/${fileName}`
 
       const { error: uploadError } = await supabase.storage
         .from('product-images')
-        .upload(filePath, fileToUpload)
+        .upload(filePath, fileToUpload, {
+          contentType: fileToUpload.type || 'image/jpeg',
+          upsert: true
+        })
 
-      if (uploadError) throw new Error("Görsel yüklenemedi")
+      if (uploadError) {
+        console.error('Upload error:', uploadError)
+        throw new Error(`Görsel yüklenemedi: ${uploadError.message}`)
+      }
       
       const { data: { publicUrl } } = supabase.storage
         .from('product-images')
@@ -425,72 +432,67 @@ export default function StudioPage() {
             <form onSubmit={handleGenerate} className="flex flex-col h-full justify-between gap-6">
               
               <div className="space-y-6">
-                {/* Upload Image Section */}
+                {/* Upload Images Section — Ön ve Arka */}
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <ImageIcon className="w-4 h-4 text-zinc-500" />
-                    <Label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Garment Images</Label>
-                    <span className="text-[10px] text-zinc-400 ml-auto">Ön ve arka görsel zorunludur</span>
+                    <Label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">{t('studio_label_garment')}</Label>
+                    <span className="text-[10px] text-zinc-400 ml-auto">{t('studio_label_required_note')}</span>
                   </div>
                   
-                  <div className={`relative border-2 border-dashed rounded-2xl p-6 text-center flex flex-col items-center justify-center transition-all duration-300 bg-zinc-50 dark:bg-zinc-900/30
-                    ${imageUrl ? 'border-violet-500/50 min-h-[220px]' : 'border-zinc-300 dark:border-zinc-700 hover:border-violet-400 min-h-[160px]'}`}>
-                    
-                    {imageUrl ? (
-                      <div className="absolute inset-2 rounded-xl overflow-hidden group/img">
-                        <Image src={imageUrl} alt="Uploaded Garment" fill className="object-cover" />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
-                          <Label htmlFor="image-upload" className="cursor-pointer bg-white/20 hover:bg-white/30 px-4 py-2 rounded-full text-white font-medium text-sm transition-colors border border-white/20">
-                            Change Image
-                          </Label>
+                  {/* Yan Yana Grid: Ön + Arka */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* ÖN GÖRSEL */}
+                    <div className={`relative border-2 border-dashed rounded-2xl overflow-hidden transition-all duration-300 aspect-[3/4] flex flex-col items-center justify-center
+                      ${imageUrl ? 'border-violet-500/50 bg-zinc-900/30' : 'border-zinc-300 dark:border-zinc-700 hover:border-violet-400 bg-zinc-50 dark:bg-zinc-900/30'}`}>
+                      {imageUrl ? (
+                        <div className="absolute inset-0 group/img">
+                          <Image src={imageUrl} alt="Ön" fill className="object-cover" />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
+                            <Label htmlFor="image-upload" className="cursor-pointer bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-full text-white font-medium text-xs transition-colors border border-white/20">
+                              Değiştir
+                            </Label>
+                          </div>
+                          <div className="absolute top-2 left-2 bg-black/60 text-white text-[10px] font-bold rounded px-2 py-0.5">ÖN</div>
                         </div>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="w-12 h-12 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
-                          <UploadCloud className="w-6 h-6 text-zinc-500 dark:text-zinc-400" />
-                        </div>
-                        <div className="text-center">
-                          <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Click to upload or drag & drop</p>
-                          <p className="text-xs text-zinc-500 mt-1">PNG, JPG, JPEG (Max. 10MB)</p>
-                        </div>
-                        <Label htmlFor="image-upload" className="cursor-pointer mt-2 bg-zinc-900 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white text-white dark:text-zinc-900 px-5 py-2 rounded-full text-xs font-bold transition-all shadow-sm">
-                          Browse File
-                        </Label>
-                      </div>
-                    )}
-                    <Input 
-                      id="image-upload" 
-                      type="file" 
-                      accept="image/*" 
-                      className="hidden" 
-                      onChange={handleFileUpload}
-                      required
-                    />
-                  </div>
+                      ) : (
+                        <label htmlFor="image-upload" className="cursor-pointer flex flex-col items-center gap-2 p-4 text-center">
+                          <UploadCloud className="w-8 h-8 text-zinc-400" />
+                          <p className="text-xs font-medium text-zinc-500">Ön görsel yükle</p>
+                        </label>
+                      )}
+                      <Input 
+                        id="image-upload" 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden" 
+                        onChange={handleFileUpload}
+                        required
+                      />
+                    </div>
 
-                  {/* Arka Açı — ZORUNLU */}
-                  <div>
-                    {backImageUrl ? (
-                      <div className="flex items-center gap-3 mt-2 p-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl border border-emerald-200 dark:border-emerald-800">
-                        <div className="relative w-12 h-12 rounded-lg overflow-hidden shrink-0">
-                          <Image src={backImageUrl} alt="Back angle" fill className="object-cover" />
+                    {/* ARKA GÖRSEL */}
+                    <div className={`relative border-2 border-dashed rounded-2xl overflow-hidden transition-all duration-300 aspect-[3/4] flex flex-col items-center justify-center
+                      ${backImageUrl ? 'border-emerald-500/50 bg-zinc-900/30' : 'border-red-300 dark:border-red-700 hover:border-violet-400 bg-zinc-50 dark:bg-zinc-900/30'}`}>
+                      {backImageUrl ? (
+                        <div className="absolute inset-0 group/back">
+                          <Image src={backImageUrl} alt="Arka" fill className="object-cover" />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/back:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
+                            <button type="button" onClick={removeBackFile} className="bg-red-500/80 hover:bg-red-500 px-3 py-1.5 rounded-full text-white font-medium text-xs transition-colors">
+                              {t('studio_back_remove')}
+                            </button>
+                          </div>
+                          <div className="absolute top-2 left-2 bg-black/60 text-white text-[10px] font-bold rounded px-2 py-0.5">ARKA</div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300 truncate">{backFile?.name}</p>
-                          <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">✓ Arka açı eklendi</p>
-                        </div>
-                        <button type="button" onClick={removeBackFile} className="text-xs text-red-400 hover:text-red-500 font-medium shrink-0 pr-1">Kaldır</button>
-                      </div>
-                    ) : (
-                      <label htmlFor="back-upload" className="flex items-center gap-2 cursor-pointer mt-2 text-xs group">
-                        <span className="w-7 h-7 rounded-lg border-2 border-dashed border-red-300 dark:border-red-700 group-hover:border-violet-400 flex items-center justify-center transition-colors">
-                          <UploadCloud className="w-3.5 h-3.5 text-red-400 group-hover:text-violet-500" />
-                        </span>
-                        <span className="text-red-500 dark:text-red-400 font-medium">Arka açı görseli ekle <span className="text-zinc-400 font-normal">(zorunlu — sırt dekoltesi, arka baskı vb.)</span></span>
-                      </label>
-                    )}
-                    <Input id="back-upload" type="file" accept="image/*" className="hidden" onChange={handleBackFileUpload} />
+                      ) : (
+                        <label htmlFor="back-upload" className="cursor-pointer flex flex-col items-center gap-2 p-4 text-center">
+                          <UploadCloud className="w-8 h-8 text-red-400" />
+                          <p className="text-xs font-medium text-red-400">Arka görsel yükle</p>
+                          <p className="text-[9px] text-zinc-400">(zorunlu)</p>
+                        </label>
+                      )}
+                      <Input id="back-upload" type="file" accept="image/*" className="hidden" onChange={handleBackFileUpload} />
+                    </div>
                   </div>
                 </div>
 
@@ -499,11 +501,11 @@ export default function StudioPage() {
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
                       <User className="w-4 h-4 text-zinc-500" />
-                      <Label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Model Gender</Label>
+                      <Label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">{t('studio_label_gender')}</Label>
                     </div>
                     <Select value={selectedGender || ""} onValueChange={(val) => setSelectedGender(val as Gender)} required>
                       <SelectTrigger className="w-full h-12 bg-zinc-50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 rounded-xl focus:ring-violet-500">
-                        <SelectValue placeholder="Select gender..." />
+                        <SelectValue placeholder={t('studio_label_gender') + '...'} />
                       </SelectTrigger>
                       <SelectContent className="rounded-xl border-zinc-200 dark:border-zinc-800 z-50">
                         {Object.entries(GENDER_CONFIG).map(([key, config]) => (
@@ -519,11 +521,11 @@ export default function StudioPage() {
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
                       <Eye className="w-4 h-4 text-zinc-500" />
-                      <Label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Model Ethnicity</Label>
+                      <Label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">{t('studio_label_ethnicity')}</Label>
                     </div>
                     <Select value={selectedEthnicity || ""} onValueChange={(val) => setSelectedEthnicity(val as Ethnicity)} required>
                       <SelectTrigger className="w-full h-12 bg-zinc-50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 rounded-xl focus:ring-violet-500">
-                        <SelectValue placeholder="Select appearance..." />
+                        <SelectValue placeholder={t('studio_label_ethnicity') + '...'} />
                       </SelectTrigger>
                       <SelectContent className="rounded-xl border-zinc-200 dark:border-zinc-800 z-50">
                         {Object.entries(ETHNICITY_CONFIG).map(([key, config]) => (
@@ -539,11 +541,11 @@ export default function StudioPage() {
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
                       <Layers className="w-4 h-4 text-zinc-500" />
-                      <Label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Environment</Label>
+                      <Label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">{t('studio_label_concept')}</Label>
                     </div>
                     <Select value={selectedConcept || ""} onValueChange={(val) => setSelectedConcept(val as Concept)} required>
                       <SelectTrigger className="w-full h-12 bg-zinc-50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 rounded-xl focus:ring-violet-500">
-                        <SelectValue placeholder="Select concept..." />
+                        <SelectValue placeholder={t('studio_label_concept') + '...'} />
                       </SelectTrigger>
                       <SelectContent className="rounded-xl border-zinc-200 dark:border-zinc-800 z-50">
                         {Object.entries(CONCEPT_CONFIG).map(([key, config]) => (
@@ -560,11 +562,11 @@ export default function StudioPage() {
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <Settings2 className="w-4 h-4 text-zinc-500" />
-                    <Label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Fabric Type <span className="text-xs font-normal text-zinc-400">(Optional)</span></Label>
+                    <Label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">{t('studio_label_fabric')} <span className="text-xs font-normal text-zinc-400">(Opsiyonel)</span></Label>
                   </div>
                   <Select value={selectedFabric || ""} onValueChange={(val) => setSelectedFabric(val as FabricType)} disabled={isDetectingFabric}>
                     <SelectTrigger className="w-full h-12 bg-zinc-50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 rounded-xl focus:ring-violet-500">
-                      <SelectValue placeholder={isDetectingFabric ? "Auto-detecting..." : "Auto-detect..."} />
+                      <SelectValue placeholder={isDetectingFabric ? 'Otomatik tespit ediliyor...' : 'Otomatik tespit...'} />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl border-zinc-200 dark:border-zinc-800 z-50">
                       {Object.entries(FABRIC_CONFIG).map(([key, config]) => (
@@ -580,11 +582,11 @@ export default function StudioPage() {
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <PersonStanding className="w-4 h-4 text-zinc-500" />
-                    <Label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Model Pose <span className="text-xs font-normal text-zinc-400">(Optional)</span></Label>
+                    <Label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">{t('studio_label_pose')} <span className="text-xs font-normal text-zinc-400">(Opsiyonel)</span></Label>
                   </div>
                   <Select value={selectedPose} onValueChange={(val) => setSelectedPose(val)}>
                     <SelectTrigger className="w-full h-12 bg-zinc-50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 rounded-xl focus:ring-violet-500">
-                      <SelectValue placeholder="Select a pose..." />
+                      <SelectValue placeholder={t('studio_label_pose') + '...'} />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl border-zinc-200 dark:border-zinc-800 z-50">
                       {Object.entries(POSE_CONFIG).map(([key, config]) => (
@@ -600,10 +602,10 @@ export default function StudioPage() {
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-zinc-500" />
-                    <Label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Styling & Accessories <span className="text-xs font-normal text-zinc-400">(Optional)</span></Label>
+                    <Label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">{t('studio_label_accessories')} <span className="text-xs font-normal text-zinc-400">(Opsiyonel)</span></Label>
                   </div>
                   <Input 
-                    placeholder="e.g. black sunglasses, silver hoop earrings, leather bag..." 
+                    placeholder="örn. siyah güneş gözlüğü, gümüş küpeler, deri çanta..." 
                     value={selectedAccessories} 
                     onChange={(e) => setSelectedAccessories(e.target.value)} 
                     className="h-12 bg-zinc-50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 rounded-xl focus:ring-violet-500"
@@ -614,9 +616,9 @@ export default function StudioPage() {
                 <div className="space-y-3 pt-4 border-t border-zinc-100 dark:border-zinc-800/50">
                   <div className="flex items-center gap-2">
                     <UserCircle className="w-4 h-4 text-zinc-500" />
-                    <Label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Consistent Model Face <span className="text-xs font-normal text-zinc-400">(Optional)</span></Label>
+                    <Label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">{t('studio_label_face')} <span className="text-xs font-normal text-zinc-400">(Opsiyonel)</span></Label>
                   </div>
-                  <p className="text-xs text-zinc-500">Keep the same model identity across all generations. Extra credits apply.</p>
+                  <p className="text-xs text-zinc-500">{t('studio_face_desc')}</p>
                   
                   {savedModels.length > 0 && (
                     <div className="flex bg-zinc-100 dark:bg-zinc-800 p-1 rounded-lg mb-2">
@@ -625,14 +627,14 @@ export default function StudioPage() {
                         onClick={() => { setUseSavedModel(false); setFaceReferenceUrl(null); }}
                         className={`flex-1 text-xs font-semibold py-1.5 rounded-md transition-colors ${!useSavedModel ? 'bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-white' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
                       >
-                        Upload New
+                        Yeni Yükle
                       </button>
                       <button 
                         type="button"
                         onClick={() => { setUseSavedModel(true); setFaceFile(null); setFacePreviewUrl(null); }}
                         className={`flex-1 text-xs font-semibold py-1.5 rounded-md transition-colors ${useSavedModel ? 'bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-white' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
                       >
-                        Saved Models
+                        Kayıtlı Modeller
                       </button>
                     </div>
                   )}
@@ -643,7 +645,7 @@ export default function StudioPage() {
                       <div className="w-full">
                         <Select value={faceReferenceUrl || ""} onValueChange={(val) => setFaceReferenceUrl(val)}>
                           <SelectTrigger className="w-full bg-transparent border-0 ring-0 focus:ring-0 shadow-none">
-                            <SelectValue placeholder="Select a saved model..." />
+                            <SelectValue placeholder="Kayıtlı model seçin..." />
                           </SelectTrigger>
                           <SelectContent className="rounded-xl border-zinc-200 dark:border-zinc-800 z-50 max-h-48">
                             {savedModels.map((m) => (
@@ -665,7 +667,7 @@ export default function StudioPage() {
                             <div>
                               <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{faceFile?.name}</p>
                               <button type="button" onClick={() => { setFaceFile(null); setFacePreviewUrl(null); setFaceReferenceUrl(null) }} className="text-xs text-red-500 hover:text-red-400">
-                                Remove
+                                Kaldır
                               </button>
                             </div>
                           </div>
@@ -674,7 +676,7 @@ export default function StudioPage() {
                             <div className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
                               <UserCircle className="w-5 h-5 text-zinc-400" />
                             </div>
-                            <span className="text-sm text-zinc-500">Click to upload face reference</span>
+                            <span className="text-sm text-zinc-500">Yüz referansı yüklemek için tıklayın</span>
                           </label>
                         )}
                         <Input
