@@ -28,8 +28,9 @@ export default function ProfilePage() {
   }, [])
 
   async function fetchAll() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.user) return
+    const user = session.user
 
     const [{ data: profileData }, { data: models }] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', user.id).single(),

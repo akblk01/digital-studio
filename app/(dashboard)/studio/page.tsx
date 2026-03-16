@@ -343,20 +343,34 @@ export default function StudioPage() {
     }
     setSavingModel(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Giriş yapın')
-      // Use the first result image as the model face reference
+      // getSession kullan (getUser middleware lock çakışmasına neden olur)
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.user) throw new Error('Giriş yapın')
+      
       const faceImageUrl = results[0]?.image_url
       if (!faceImageUrl) throw new Error('Görsel bulunamadı')
-      const { error } = await supabase.from('saved_models').insert({
-        user_id: user.id,
-        model_name: saveModelName.trim(),   // ✅ correct column name
+
+      // Timeout ile insert (sonsuz beklemeyi önle)
+      const insertPromise = supabase.from('saved_models').insert({
+        user_id: session.user.id,
+        model_name: saveModelName.trim(),
         face_image_url: faceImageUrl,
       })
-      if (error) throw error
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('İstek zaman aşımına uğradı. Lütfen tekrar deneyin.')), 10000)
+      )
+
+      const { error } = await Promise.race([insertPromise, timeoutPromise]) as any
+      if (error) {
+        console.error('Save model error:', error)
+        throw new Error(error.message || 'Kayıt başarısız')
+      }
+      
       toast.success(t('studio_model_saved'))
       setSaveModelName('')
     } catch (err: any) {
+      console.error('handleSaveModel error:', err)
       toast.error(err.message || 'Kayıt başarısız')
     } finally {
       setSavingModel(false)
