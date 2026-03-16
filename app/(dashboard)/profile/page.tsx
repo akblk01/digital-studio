@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react"
 import { createClient } from "@/lib/supabase/client"
-import { Loader2, User, LogOut, Shield, UserCircle, Plus, Trash2, Upload } from "lucide-react"
+import { Loader2, User, LogOut, Shield, UserCircle, Trash2, Sparkles, Bookmark } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -164,51 +164,25 @@ export default function ProfilePage() {
                 <UserCircle className="w-5 h-5 text-violet-500" />
                 Kayıtlı Mankenler
               </CardTitle>
-              <CardDescription>
-                Kaydedilen mankenler, üretim sırasında tutarlı yüz referansı olarak kullanılır.
+              <CardDescription className="flex items-start gap-2">
+                <span className="text-zinc-500 text-sm">
+                  Mankenler, <strong>Stüdyo</strong> sayfasında üretim tamamlandıktan sonra 
+                  her görsel üzerindeki mor <Bookmark className="w-3 h-3 inline" /> 
+                  ikonuna tıklanarak kaydedilir.
+                </span>
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Yeni Manken Ekleme Formu */}
-              <div className="border border-dashed border-zinc-200 dark:border-zinc-700 rounded-2xl p-4 space-y-3 bg-zinc-50 dark:bg-zinc-900/30">
-                <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">Yeni Manken Ekle</p>
-                <div className="flex gap-3 items-start">
-                  {/* Fotoğraf Seçimi */}
-                  <div className="shrink-0">
-                    {modelPreview ? (
-                      <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-700">
-                        <Image src={modelPreview} alt="Preview" fill className="object-cover" />
-                      </div>
-                    ) : (
-                      <label className="flex flex-col items-center justify-center w-16 h-16 border-2 border-dashed border-zinc-300 dark:border-zinc-700 rounded-xl cursor-pointer hover:border-violet-400 transition-colors bg-white dark:bg-zinc-800">
-                        <Upload className="w-5 h-5 text-zinc-400" />
-                        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleModelFileSelect} />
-                      </label>
-                    )}
-                  </div>
-                  {/* İsim + Kaydet */}
-                  <div className="flex-1 space-y-2">
-                    <Input
-                      placeholder="Manken adı (örn: Ayşe, Model 1)"
-                      value={modelName}
-                      onChange={(e) => setModelName(e.target.value)}
-                      className="h-10 rounded-xl text-sm"
-                    />
-                    <Button
-                      onClick={handleSaveModel}
-                      disabled={savingModel || !modelName.trim() || !modelFile}
-                      className="w-full h-9 text-sm bg-gradient-to-r from-fuchsia-500 to-violet-500 hover:opacity-90 text-white rounded-xl"
-                    >
-                      {savingModel ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Plus className="w-4 h-4 mr-1" /> Mankeni Kaydet</>}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Kayıtlı Liste */}
               {savedModels.length === 0 ? (
-                <div className="text-center py-8 text-zinc-400 text-sm">
-                  Henüz kayıtlı manken bulunmuyor.
+                <div className="text-center py-10 space-y-3">
+                  <p className="text-zinc-400 text-sm">Henüz kayıtlı manken bulunmuyor.</p>
+                  <a
+                    href="/studio"
+                    className="inline-flex items-center gap-2 text-sm font-semibold text-white bg-gradient-to-r from-fuchsia-500 to-violet-500 hover:opacity-90 px-4 py-2 rounded-xl transition-opacity"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    Stüdyo'ya Git ve Üret
+                  </a>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">

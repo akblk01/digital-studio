@@ -64,13 +64,20 @@ export default function Header() {
         <nav className="flex items-center gap-1 sm:gap-4">
           {user ? (
             <>
-              <Link
-                href="/studio"
-                className={`flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-lg transition-colors ${pathname === '/studio' ? 'text-white bg-white/10' : 'text-[#A0A0B0] hover:text-white hover:bg-white/5'}`}
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">{t('nav_studio')}</span>
-              </Link>
+              {pathname === '/studio' ? (
+                <span className="flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-lg text-white bg-white/10 cursor-default">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">{t('nav_studio')}</span>
+                </span>
+              ) : (
+                <Link
+                  href="/studio"
+                  className="flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-lg transition-colors text-[#A0A0B0] hover:text-white hover:bg-white/5"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">{t('nav_studio')}</span>
+                </Link>
+              )}
               <Link
                 href="/gallery"
                 className={`flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-lg transition-colors ${pathname === '/gallery' ? 'text-white bg-white/10' : 'text-[#A0A0B0] hover:text-white hover:bg-white/5'}`}

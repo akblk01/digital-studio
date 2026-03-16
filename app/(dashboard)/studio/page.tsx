@@ -16,7 +16,8 @@ import {
   Image as ImageIcon,
   UserCircle,
   User,
-  PersonStanding
+  PersonStanding,
+  Bookmark
 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 
@@ -29,6 +30,7 @@ import { ETHNICITY_CONFIG, CONCEPT_CONFIG, FABRIC_CONFIG, GENDER_CONFIG, POSE_CO
 import type { Ethnicity, Concept, GeneratedImage, FabricType, Gender } from "@/types"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
+import { useTranslation } from "@/lib/i18n/context"
 
 export default function StudioPage() {
   const [file, setFile] = useState<File | null>(null)
@@ -65,6 +67,7 @@ export default function StudioPage() {
   const [useSavedModel, setUseSavedModel] = useState<boolean>(false)
 
   const supabase = createClient()
+  const { t } = useTranslation()
 
   useEffect(() => {
     async function loadSavedModels() {
@@ -100,12 +103,12 @@ export default function StudioPage() {
   }, [isGenerating])
 
   const progressMessages = [
-    "Preparing the studio environment...",
-    "Uploading your garment...",
-    "Analyzing fabric and patterns...",
-    "Applying advanced AI VTON model...",
-    "Rendering lighting and shadows...",
-    "Adding final artistic touches..."
+    "Stüdyo ortamı hazırlanıyor...",
+    "Ürün görseli yükleniyor...",
+    "Kumaş ve desen analiz ediliyor...",
+    "Gelişmiş AI VTON modeli uygulanıyor...",
+    "Işık ve gölgeler render ediliyor...",
+    "Son sanatsal dokunuşlar ekleniyor..."
   ]
 
   useEffect(() => {
@@ -324,6 +327,29 @@ export default function StudioPage() {
 
   const isMobile = typeof navigator !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
 
+  const [savingModelId, setSavingModelId] = useState<string | null>(null)
+
+  const handleSaveModel = async (imageUrl: string, imgIndex: number) => {
+    const name = window.prompt(`Bu manken için bir isim girin (örn: Model ${imgIndex + 1}, Ayşe):`)
+    if (!name?.trim()) return
+    setSavingModelId(imageUrl)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error("Giriş yapın")
+      const { error } = await supabase.from('saved_models').insert({
+        user_id: user.id,
+        name: name.trim(),
+        face_image_url: imageUrl,
+      })
+      if (error) throw error
+      toast.success(`"${name.trim()}" mankeni kaydedildi! Profilinizden yönetebilirsiniz.`)
+    } catch (err: any) {
+      toast.error(err.message || 'Kayıt başarısız')
+    } finally {
+      setSavingModelId(null)
+    }
+  }
+
   const handleDownloadZip = () => {
     if (!generationId) return
     if (isMobile) {
@@ -358,10 +384,10 @@ export default function StudioPage() {
     <main className="flex min-h-[calc(100vh-4rem)] flex-col items-center justify-center p-4 sm:p-8 bg-white dark:bg-[#0A0A0A]">
       <div className="w-full max-w-4xl text-center mb-8">
         <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50 mb-3">
-          AI <span className="text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-500 to-violet-500">Catalog Studio</span>
+          AI <span className="text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-500 to-violet-500">{t('studio_title').replace('AI ', '')}</span>
         </h1>
         <p className="text-lg text-zinc-500 dark:text-zinc-400 font-medium">
-          Professional, minimal, automated. Upload your garment and let the magic happen.
+          {t('studio_subtitle')}
         </p>
       </div>
 
@@ -374,7 +400,7 @@ export default function StudioPage() {
               <Sparkles className="w-4 h-4 text-white" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider">Generation Configurator</h3>
+              <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider">GÜNEŞ YAPILANDIRICI</h3>
             </div>
           </div>
           {showPreview && !isGenerating && results.length > 0 && (
@@ -383,7 +409,7 @@ export default function StudioPage() {
                className="text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors font-medium flex items-center gap-1"
              >
                <Settings2 className="w-3.5 h-3.5" />
-               New Session
+               {t('studio_new_session')}
              </button>
           )}
         </div>
@@ -704,7 +730,7 @@ export default function StudioPage() {
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
                        <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                       <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">Generation Complete</h3>
+                       <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">{t('studio_complete')}</h3>
                     </div>
                     <Button 
                       onClick={handleDownloadZip}
@@ -712,7 +738,7 @@ export default function StudioPage() {
                       className="bg-zinc-900 hover:bg-zinc-800 text-white rounded-lg px-3 h-8 text-xs font-semibold"
                     >
                       <Download className="w-3.5 h-3.5 mr-1.5" />
-                      {isMobile ? 'Görselleri Aç' : 'Save Collection (.zip)'}
+                      {isMobile ? t('studio_open_images') : t('studio_save_zip')}
                     </Button>
                   </div>
 
@@ -726,6 +752,7 @@ export default function StudioPage() {
                                fill
                                className="object-cover group-hover:scale-[1.03] transition-transform duration-500"
                              />
+                             {/* İndir */}
                              <button
                                onClick={() => handleDownloadSingle(img.image_url)}
                                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 hover:bg-black/80 text-white rounded-lg p-1.5"
@@ -733,6 +760,21 @@ export default function StudioPage() {
                              >
                                <Download className="w-3 h-3" />
                              </button>
+                             {/* Manken Kaydet */}
+                             <button
+                               onClick={() => handleSaveModel(img.image_url, i)}
+                               disabled={savingModelId === img.image_url}
+                               className="absolute bottom-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity bg-violet-600/90 hover:bg-violet-600 text-white rounded-lg p-1.5 flex items-center gap-1 text-[10px] font-semibold disabled:opacity-50"
+                               title="Bu modeli kaydet"
+                             >
+                               {savingModelId === img.image_url
+                                 ? <Loader2 className="w-3 h-3 animate-spin" />
+                                 : <Bookmark className="w-3 h-3" />}
+                             </button>
+                             {/* Pozisyon etiketi */}
+                             <div className="absolute bottom-2 right-2 bg-black/50 text-white text-[9px] font-bold rounded px-1.5 py-0.5">
+                               {i === results.length - 1 ? 'ARKA' : `#${i + 1}`}
+                             </div>
                            </div>
                         ))}
                      </div>
