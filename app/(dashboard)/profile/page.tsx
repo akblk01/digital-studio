@@ -189,12 +189,12 @@ export default function ProfilePage() {
                   {savedModels.map((model) => (
                     <div key={model.id} className="group relative rounded-2xl overflow-hidden border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
                       <div className="relative aspect-square">
-                        <Image src={model.face_image_url} alt={model.name} fill className="object-cover" />
+                        <Image src={model.face_image_url} alt={model.model_name} fill className="object-cover" />
                       </div>
                       <div className="p-2 flex items-center justify-between">
-                        <p className="text-xs font-semibold truncate text-zinc-800 dark:text-zinc-200">{model.name}</p>
+                        <p className="text-xs font-semibold truncate text-zinc-800 dark:text-zinc-200">{model.model_name}</p>
                         <button
-                          onClick={() => handleDeleteModel(model.id, model.name)}
+                          onClick={() => handleDeleteModel(model.id, model.model_name)}
                           className="text-red-400 hover:text-red-500 p-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                         >
                           <Trash2 className="w-3.5 h-3.5" />

@@ -107,6 +107,14 @@
   "register_have_account": "Already have an account?",
   "register_login_link": "Sign in",
 
+  "studio_configurator_header": "GENERATION CONFIGURATOR",
+  "studio_wait_msg": "High quality AI image generation takes about 3-4 minutes. Do not close this page.",
+  "studio_save_model_title": "Save This Collection's Model",
+  "studio_save_model_desc": "Save this model to reuse in future generations.",
+  "studio_model_name_placeholder": "Model name (e.g. Sarah, Model A)",
+  "studio_save_model_btn": "Save Model",
+  "studio_model_saved": "Model saved! Manage it from your Profile.",
+
   "footer_rights": "© 2026 TexStudio AI. All rights reserved.",
   "footer_terms": "Terms of Service",
   "footer_privacy": "Privacy Policy"

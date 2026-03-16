@@ -107,6 +107,14 @@
   "register_have_account": "Zaten hesabınız var mı?",
   "register_login_link": "Giriş yapın",
 
+  "studio_configurator_header": "ÜRETİM YAPILANDIRICI",
+  "studio_wait_msg": "Yüksek kaliteli AI görsel üretimi yaklaşık 3-4 dakika sürer. Bu sayfayı kapatmayın.",
+  "studio_save_model_title": "Bu Koleksiyonun Mankenini Kaydet",
+  "studio_save_model_desc": "Aynı modeli gelecekte tekrar kullanmak için kaydedin.",
+  "studio_model_name_placeholder": "Manken adı (örn: Sara, Model A)",
+  "studio_save_model_btn": "Mankeni Kaydet",
+  "studio_model_saved": "Manken kaydedildi! Profilinizden yönetebilirsiniz.",
+
   "footer_rights": "© 2026 TexStudio AI. Tüm hakları saklıdır.",
   "footer_terms": "Kullanım Şartları",
   "footer_privacy": "Gizlilik Politikası"

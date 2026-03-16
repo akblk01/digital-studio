@@ -107,6 +107,14 @@
   "register_have_account": "Уже есть аккаунт?",
   "register_login_link": "Войти",
 
+  "studio_configurator_header": "НАСТРОЙКА ГЕНЕРАЦИИ",
+  "studio_wait_msg": "Генерация высококачественных изображений занимает 3-4 минуты. Не закрывайте эту страницу.",
+  "studio_save_model_title": "Сохранить модель этой коллекции",
+  "studio_save_model_desc": "Сохраните эту модель, чтобы использовать её в будущих генерациях.",
+  "studio_model_name_placeholder": "Имя модели (напр. Анна, Модель A)",
+  "studio_save_model_btn": "Сохранить модель",
+  "studio_model_saved": "Модель сохранена! Управляйте ею в своём профиле.",
+
   "footer_rights": "© 2026 TexStudio AI. Все права защищены.",
   "footer_terms": "Условия использования",
   "footer_privacy": "Политика конфиденциальности"

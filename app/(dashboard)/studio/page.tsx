@@ -65,6 +65,8 @@ export default function StudioPage() {
   // Saved Models State
   const [savedModels, setSavedModels] = useState<any[]>([])
   const [useSavedModel, setUseSavedModel] = useState<boolean>(false)
+  const [saveModelName, setSaveModelName] = useState('')
+  const [savingModel, setSavingModel] = useState(false)
 
   const supabase = createClient()
   const { t } = useTranslation()
@@ -327,26 +329,30 @@ export default function StudioPage() {
 
   const isMobile = typeof navigator !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
 
-  const [savingModelId, setSavingModelId] = useState<string | null>(null)
-
-  const handleSaveModel = async (imageUrl: string, imgIndex: number) => {
-    const name = window.prompt(`Bu manken için bir isim girin (örn: Model ${imgIndex + 1}, Ayşe):`)
-    if (!name?.trim()) return
-    setSavingModelId(imageUrl)
+  const handleSaveModel = async () => {
+    if (!saveModelName.trim()) {
+      toast.error('Lütfen bir isim girin')
+      return
+    }
+    setSavingModel(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error("Giriş yapın")
+      if (!user) throw new Error('Giriş yapın')
+      // Use the first result image as the model face reference
+      const faceImageUrl = results[0]?.image_url
+      if (!faceImageUrl) throw new Error('Görsel bulunamadı')
       const { error } = await supabase.from('saved_models').insert({
         user_id: user.id,
-        name: name.trim(),
-        face_image_url: imageUrl,
+        model_name: saveModelName.trim(),   // ✅ correct column name
+        face_image_url: faceImageUrl,
       })
       if (error) throw error
-      toast.success(`"${name.trim()}" mankeni kaydedildi! Profilinizden yönetebilirsiniz.`)
+      toast.success(t('studio_model_saved'))
+      setSaveModelName('')
     } catch (err: any) {
       toast.error(err.message || 'Kayıt başarısız')
     } finally {
-      setSavingModelId(null)
+      setSavingModel(false)
     }
   }
 
@@ -400,7 +406,7 @@ export default function StudioPage() {
               <Sparkles className="w-4 h-4 text-white" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider">GÜNEŞ YAPILANDIRICI</h3>
+              <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider">{t('studio_configurator_header')}</h3>
             </div>
           </div>
           {showPreview && !isGenerating && results.length > 0 && (
@@ -692,7 +698,7 @@ export default function StudioPage() {
                   className="w-full h-12 flex items-center justify-center gap-2 bg-gradient-to-r from-fuchsia-500 to-violet-500 hover:from-fuchsia-600 hover:to-violet-600 text-white text-sm font-bold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg disabled:shadow-none"
                 >
                   <Sparkles className="w-4 h-4" />
-                  Generate 4 Professional Photos
+                  {t('studio_btn_generate')}
                 </button>
               </div>
             </form>
@@ -713,7 +719,7 @@ export default function StudioPage() {
                       {progressMessages[currentTextIndex]}
                     </p>
                     <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                      High quality AI image generation takes about ~3-4 minutes. Do not close this page.
+                      {t('studio_wait_msg')}
                     </p>
                   </div>
                   
@@ -742,7 +748,7 @@ export default function StudioPage() {
                     </Button>
                   </div>
 
-                  <div className="flex-1 overflow-y-auto pr-1">
+                  <div className="flex-1 overflow-y-auto pr-1 space-y-4">
                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         {results.map((img, i) => (
                            <div key={img.id || i} className="group relative aspect-[3/4] rounded-xl overflow-hidden bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700">
@@ -760,23 +766,39 @@ export default function StudioPage() {
                              >
                                <Download className="w-3 h-3" />
                              </button>
-                             {/* Manken Kaydet */}
-                             <button
-                               onClick={() => handleSaveModel(img.image_url, i)}
-                               disabled={savingModelId === img.image_url}
-                               className="absolute bottom-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity bg-violet-600/90 hover:bg-violet-600 text-white rounded-lg p-1.5 flex items-center gap-1 text-[10px] font-semibold disabled:opacity-50"
-                               title="Bu modeli kaydet"
-                             >
-                               {savingModelId === img.image_url
-                                 ? <Loader2 className="w-3 h-3 animate-spin" />
-                                 : <Bookmark className="w-3 h-3" />}
-                             </button>
                              {/* Pozisyon etiketi */}
                              <div className="absolute bottom-2 right-2 bg-black/50 text-white text-[9px] font-bold rounded px-1.5 py-0.5">
                                {i === results.length - 1 ? 'ARKA' : `#${i + 1}`}
                              </div>
                            </div>
                         ))}
+                     </div>
+
+                     {/* Manken Kaydet — Tek Form */}
+                     <div className="border border-violet-500/20 bg-violet-500/5 rounded-2xl p-4 space-y-2">
+                       <div className="flex items-center gap-2 mb-1">
+                         <Bookmark className="w-4 h-4 text-violet-400" />
+                         <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">{t('studio_save_model_title')}</p>
+                       </div>
+                       <p className="text-xs text-zinc-500 dark:text-zinc-400">{t('studio_save_model_desc')}</p>
+                       <div className="flex gap-2 mt-2">
+                         <input
+                           type="text"
+                           value={saveModelName}
+                           onChange={(e) => setSaveModelName(e.target.value)}
+                           placeholder={t('studio_model_name_placeholder')}
+                           className="flex-1 h-9 px-3 text-sm bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-transparent outline-none text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400"
+                           onKeyDown={(e) => e.key === 'Enter' && handleSaveModel()}
+                         />
+                         <button
+                           onClick={handleSaveModel}
+                           disabled={savingModel || !saveModelName.trim()}
+                           className="h-9 px-4 text-sm font-semibold bg-gradient-to-r from-fuchsia-500 to-violet-500 hover:opacity-90 text-white rounded-xl transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 shrink-0"
+                         >
+                           {savingModel ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Bookmark className="w-3.5 h-3.5" />}
+                           {t('studio_save_model_btn')}
+                         </button>
+                       </div>
                      </div>
                   </div>
 

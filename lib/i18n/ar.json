@@ -107,6 +107,14 @@
   "register_have_account": "لديك حساب بالفعل؟",
   "register_login_link": "تسجيل الدخول",
 
+  "studio_configurator_header": "إعدادات التوليد",
+  "studio_wait_msg": "توليد صور عالية الجودة يستغرق 3-4 دقائق. لا تغلق هذه الصفحة.",
+  "studio_save_model_title": "حفظ نموذج هذه المجموعة",
+  "studio_save_model_desc": "احفظ هذا النموذج لإعادة استخدامه في عمليات توليد مستقبلية.",
+  "studio_model_name_placeholder": "اسم النموذج (مثل سارة، نموذج A)",
+  "studio_save_model_btn": "حفظ النموذج",
+  "studio_model_saved": "تم حفظ النموذج! يمكنك إدارته من ملفك الشخصي.",
+
   "footer_rights": "© 2026 TexStudio AI. جميع الحقوق محفوظة.",
   "footer_terms": "شروط الخدمة",
   "footer_privacy": "سياسة الخصوصية"
