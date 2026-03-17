@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { toast } from "sonner"
 import Link from "next/link"
 import { Camera } from "lucide-react"
+import { useTranslation } from "@/lib/i18n/context"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -17,6 +18,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const supabase = createClient()
+  const { t } = useTranslation()
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -29,13 +31,13 @@ export default function LoginPage() {
       })
 
       if (error) {
-        toast.error("Giriş başarısız", { description: error.message })
+        toast.error(t('login_toast_fail'), { description: error.message })
       } else {
-        toast.success("Giriş yapıldı!")
+        toast.success(t('login_toast_success'))
         router.push("/studio")
       }
     } catch (err: any) {
-      toast.error("Bir hata oluştu")
+      toast.error(t('login_toast_error'))
     } finally {
       setLoading(false)
     }
@@ -53,19 +55,19 @@ export default function LoginPage() {
               <Camera className="h-8 w-8 text-white" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold text-center text-white">Tekrar Hoşgeldiniz</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center text-white">{t('login_title')}</CardTitle>
           <CardDescription className="text-center text-[#A0A0B0]">
-            TexStudio AI hesabınıza giriş yapın
+            {t('login_subtitle')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-white">E-posta</Label>
+              <Label htmlFor="email" className="text-white">{t('login_email')}</Label>
               <Input 
                 id="email" 
                 type="email" 
-                placeholder="ornek@sirket.com" 
+                placeholder={t('login_placeholder_email')} 
                 required 
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -73,7 +75,7 @@ export default function LoginPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-white">Şifre</Label>
+              <Label htmlFor="password" className="text-white">{t('login_password')}</Label>
               <Input 
                 id="password" 
                 type="password" 
@@ -88,14 +90,14 @@ export default function LoginPage() {
               className="w-full bg-[#6C63FF] hover:bg-[#5b54d6] text-white" 
               disabled={loading}
             >
-              {loading ? "Giriş Yapılıyor..." : "Giriş Yap"}
+              {loading ? t('login_logging_in') : t('login_btn')}
             </Button>
           </form>
         </CardContent>
         <CardFooter className="flex justify-center text-sm text-[#A0A0B0]">
-          Hesabınız yok mu?{' '}
+          {t('login_no_account')}{' '}
           <Link href="/register" className="ml-1 text-[#FF6584] hover:underline font-medium">
-            Kayıt Olun
+            {t('login_register_link')}
           </Link>
         </CardFooter>
       </Card>

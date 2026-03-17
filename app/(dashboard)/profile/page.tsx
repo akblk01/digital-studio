@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import Image from "next/image"
+import { useTranslation } from "@/lib/i18n/context"
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState<any>(null)
@@ -22,15 +23,15 @@ export default function ProfilePage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const supabase = createClient()
   const router = useRouter()
+  const { t } = useTranslation()
 
   useEffect(() => {
     fetchAll()
   }, [])
 
   async function fetchAll() {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session?.user) return
-    const user = session.user
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
 
     const [{ data: profileData }, { data: models }] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', user.id).single(),
@@ -51,15 +52,14 @@ export default function ProfilePage() {
 
   const handleSaveModel = async () => {
     if (!modelName.trim() || !modelFile) {
-      toast.error("Lütfen bir isim ve fotoğraf seçin")
+      toast.error(t('profile_name_photo_required'))
       return
     }
     setSavingModel(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error("Giriş yapın")
+      if (!user) throw new Error(t('studio_login_required'))
 
-      // Fotoğrafı Supabase'e yükle
       const ext = modelFile.name.split('.').pop()
       const path = `saved-models/${user.id}/${Date.now()}.${ext}`
       const { error: uploadErr } = await supabase.storage.from('product-images').upload(path, modelFile)
@@ -67,7 +67,6 @@ export default function ProfilePage() {
 
       const { data: { publicUrl } } = supabase.storage.from('product-images').getPublicUrl(path)
 
-      // Kayıt
       const { error: insertErr } = await supabase.from('saved_models').insert({
         user_id: user.id,
         name: modelName.trim(),
@@ -75,26 +74,26 @@ export default function ProfilePage() {
       })
       if (insertErr) throw insertErr
 
-      toast.success(`"${modelName}" mankeni kaydedildi!`)
+      toast.success(`"${modelName}" ${t('profile_model_saved_toast')}`)
       setModelName("")
       setModelFile(null)
       setModelPreview(null)
       if (fileInputRef.current) fileInputRef.current.value = ""
       await fetchAll()
     } catch (err: any) {
-      toast.error(err.message || "Kayıt başarısız")
+      toast.error(err.message || t('profile_save_fail'))
     } finally {
       setSavingModel(false)
     }
   }
 
   const handleDeleteModel = async (modelId: string, name: string) => {
-    if (!confirm(`"${name}" mankenini silmek istediğinizden emin misiniz?`)) return
+    if (!confirm(`"${name}" ${t('profile_delete_confirm')}`)) return
     const { error } = await supabase.from('saved_models').delete().eq('id', modelId)
     if (error) {
-      toast.error("Silme başarısız")
+      toast.error(t('profile_delete_fail'))
     } else {
-      toast.success(`"${name}" silindi`)
+      toast.success(`"${name}" ${t('profile_delete_success')}`)
       setSavedModels(prev => prev.filter(m => m.id !== modelId))
     }
   }
@@ -115,12 +114,12 @@ export default function ProfilePage() {
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl space-y-8">
       <div>
-        <h1 className="text-3xl font-bold mb-1 text-zinc-900 dark:text-white">Profilim</h1>
-        <p className="text-zinc-500">Hesap ayarlarınızı ve kayıtlı mankenlerinizi yönetin.</p>
+        <h1 className="text-3xl font-bold mb-1 text-zinc-900 dark:text-white">{t('profile_title')}</h1>
+        <p className="text-zinc-500">{t('profile_subtitle')}</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Sol: Profil Kartı */}
+        {/* Left: Profile Card */}
         <div className="lg:col-span-1 space-y-4">
           <Card className="rounded-3xl overflow-hidden">
             <CardHeader className="bg-zinc-50 dark:bg-zinc-900/50 border-b border-zinc-200 dark:border-zinc-800">
@@ -129,60 +128,58 @@ export default function ProfilePage() {
                   {profile?.full_name ? profile.full_name.charAt(0).toUpperCase() : <User />}
                 </div>
                 <div className="min-w-0">
-                  <CardTitle className="text-lg truncate">{profile?.full_name || 'Kullanıcı'}</CardTitle>
+                  <CardTitle className="text-lg truncate">{profile?.full_name || t('profile_user_default')}</CardTitle>
                   <CardDescription className="truncate">{profile?.email}</CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="pt-4 space-y-3">
               <div>
-                <p className="text-xs text-zinc-500 font-medium mb-1">Kredi</p>
+                <p className="text-xs text-zinc-500 font-medium mb-1">{t('profile_credits')}</p>
                 <p className="text-2xl font-bold text-zinc-900 dark:text-white">{profile?.credits ?? 0}</p>
               </div>
               <div>
-                <p className="text-xs text-zinc-500 font-medium mb-1">Plan</p>
+                <p className="text-xs text-zinc-500 font-medium mb-1">{t('profile_plan')}</p>
                 <p className="text-sm font-semibold capitalize text-violet-500">{profile?.subscription_plan || 'Free'}</p>
               </div>
               <div className="flex items-center gap-2 text-xs text-emerald-500 font-medium pt-1">
                 <Shield className="w-3.5 h-3.5" />
-                Hesap güvende
+                {t('profile_secure')}
               </div>
             </CardContent>
             <CardFooter className="border-t border-zinc-200 dark:border-zinc-800 pt-4">
               <Button variant="destructive" onClick={handleSignOut} className="w-full rounded-xl">
                 <LogOut className="w-4 h-4 mr-2" />
-                Çıkış Yap
+                {t('profile_signout')}
               </Button>
             </CardFooter>
           </Card>
         </div>
 
-        {/* Sağ: Kayıtlı Mankenler */}
+        {/* Right: Saved Models */}
         <div className="lg:col-span-2 space-y-4">
           <Card className="rounded-3xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <UserCircle className="w-5 h-5 text-violet-500" />
-                Kayıtlı Mankenler
+                {t('profile_models_title')}
               </CardTitle>
               <CardDescription className="flex items-start gap-2">
                 <span className="text-zinc-500 text-sm">
-                  Mankenler, <strong>Stüdyo</strong> sayfasında üretim tamamlandıktan sonra 
-                  her görsel üzerindeki mor <Bookmark className="w-3 h-3 inline" /> 
-                  ikonuna tıklanarak kaydedilir.
+                  {t('profile_models_info')}
                 </span>
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {savedModels.length === 0 ? (
                 <div className="text-center py-10 space-y-3">
-                  <p className="text-zinc-400 text-sm">Henüz kayıtlı manken bulunmuyor.</p>
+                  <p className="text-zinc-400 text-sm">{t('profile_no_models')}</p>
                   <a
                     href="/studio"
                     className="inline-flex items-center gap-2 text-sm font-semibold text-white bg-gradient-to-r from-fuchsia-500 to-violet-500 hover:opacity-90 px-4 py-2 rounded-xl transition-opacity"
                   >
                     <Sparkles className="w-4 h-4" />
-                    Stüdyo'ya Git ve Üret
+                    {t('profile_go_studio')}
                   </a>
                 </div>
               ) : (

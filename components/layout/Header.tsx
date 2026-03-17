@@ -166,7 +166,7 @@ export default function Header() {
                     {/* Menu */}
                     <div className="absolute right-0 top-full mt-2 w-52 bg-[#1A1A2E] border border-[#2A2A3E] rounded-2xl shadow-xl z-50 overflow-hidden py-1">
                       <div className="px-4 py-3 border-b border-[#2A2A3E]">
-                        <p className="text-xs text-[#A0A0B0]">Giriş yapıldı</p>
+                        <p className="text-xs text-[#A0A0B0]">{t('header_signed_in')}</p>
                         <p className="text-sm font-semibold text-white truncate">{user.email}</p>
                       </div>
                       <Link

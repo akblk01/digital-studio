@@ -6,41 +6,44 @@ import {
   Sparkles,
   Zap
 } from "lucide-react"
-
-const features = [
-  {
-    name: "Hızlı Üretim",
-    description: "Yalnızca birkaç dakika içinde 20 farklı varyasyonla yüksek çözünürlüklü görseller elde edin.",
-    icon: Zap,
-  },
-  {
-    name: "Eksiksiz Kumaş Transferi",
-    description: "Giysinin dokusu, desenleri ve en ince detayları olduğu gibi mankene geçirilir.",
-    icon: Shirt,
-  },
-  {
-    name: "Yapay Zeka Destekli Modeller",
-    description: "Fal.ai ve gelişmiş difüzyon modelleri sayesinde gerçek bir fotoğraf stüdyosu kalitesini yakalayın.",
-    icon: Sparkles,
-  },
-  {
-    name: "Satışlarınızı Artırın",
-    description: "Profesyonel kataloglar oluşturarak müşterilerinizin satın alma kararına doğrudan etki edin.",
-    icon: LineChart,
-  },
-]
+import { useTranslation } from "@/lib/i18n/context"
 
 export function Features() {
+  const { t } = useTranslation()
+
+  const features = [
+    {
+      name: t('feature_speed_title'),
+      description: t('feature_speed_desc'),
+      icon: Zap,
+    },
+    {
+      name: t('feature_fabric_title'),
+      description: t('feature_fabric_desc'),
+      icon: Shirt,
+    },
+    {
+      name: t('feature_ai_title'),
+      description: t('feature_ai_desc'),
+      icon: Sparkles,
+    },
+    {
+      name: t('feature_sales_title'),
+      description: t('feature_sales_desc'),
+      icon: LineChart,
+    },
+  ]
+
   return (
     <div className="bg-[#0F0F1A] py-24 sm:py-32">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
         <div className="mx-auto max-w-2xl lg:text-center">
-          <h2 className="text-base font-semibold leading-7 text-[#FF6584]">Daha Hızlı Çalışın</h2>
+          <h2 className="text-base font-semibold leading-7 text-[#FF6584]">{t('features_section_badge')}</h2>
           <p className="mt-2 text-3xl font-bold tracking-tight text-white sm:text-4xl">
-            Her Şey Bir Fotoğrafla Başlar
+            {t('features_section_title')}
           </p>
           <p className="mt-6 text-lg leading-8 text-[#A0A0B0]">
-            Pahalı fotoğraf çekimlerine, manken kiralamaya ve günlerce süren teslimatlara son. TexStudio AI ile dakikalar içinde hazır olun.
+            {t('features_section_subtitle')}
           </p>
         </div>
         <div className="mx-auto mt-16 max-w-2xl sm:mt-20 lg:mt-24 lg:max-w-4xl">

@@ -5,8 +5,11 @@ import { motion } from "framer-motion"
 import { Sparkles, ArrowRight, Camera } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { useTranslation } from "@/lib/i18n/context"
 
 export function Hero() {
+  const { t } = useTranslation()
+
   return (
     <div className="relative overflow-hidden bg-[#0F0F1A] pb-32 pt-40 z-0">
       {/* Background gradients */}
@@ -24,7 +27,7 @@ export function Hero() {
             className="inline-flex items-center rounded-full border border-[#2A2A3E] bg-[#1A1A2E]/50 px-3 py-1 text-sm text-[#A0A0B0] backdrop-blur-xl"
           >
             <Sparkles className="mr-2 h-4 w-4 text-[#FF6584]" />
-            <span className="font-medium">TexStudio AI 1.0 Yayında</span>
+            <span className="font-medium">{t('hero_inline_badge')}</span>
           </motion.div>
 
           <motion.h1
@@ -33,7 +36,7 @@ export function Hero() {
             transition={{ duration: 0.5, delay: 0.1 }}
             className="text-4xl font-extrabold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl"
           >
-            Tek tıkla <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#6C63FF] to-[#FF6584]">moda kataloğunuz</span> hazır.
+            {t('hero_inline_title_1')}<span className="text-transparent bg-clip-text bg-gradient-to-r from-[#6C63FF] to-[#FF6584]">{t('hero_inline_title_highlight')}</span>{t('hero_inline_title_2')}
           </motion.h1>
 
           <motion.p
@@ -42,7 +45,7 @@ export function Hero() {
             transition={{ duration: 0.5, delay: 0.2 }}
             className="max-w-2xl text-lg text-[#A0A0B0] sm:text-xl"
           >
-            Sadece cep telefonunuzla çektiğiniz bir ürün fotoğrafını yükleyin. Yapay zeka, onu profesyonel mankenlerin üzerinde büyüleyici bir katalog görseline dönüştürsün.
+            {t('hero_inline_subtitle')}
           </motion.p>
 
           <motion.div
@@ -54,13 +57,13 @@ export function Hero() {
             <Button asChild size="lg" className="h-14 px-8 bg-[#6C63FF] hover:bg-[#5b54d6] text-white rounded-full group">
               <Link href="/studio">
                 <Camera className="mr-2 h-5 w-5 group-hover:scale-110 transition-transform" />
-                Hemen Üretmeye Başla
+                {t('hero_cta_studio')}
                 <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
               </Link>
             </Button>
             <Button asChild size="lg" variant="outline" className="h-14 px-8 rounded-full border-[#2A2A3E] bg-transparent hover:bg-[#1A1A2E] text-white">
               <Link href="/gallery">
-                Örnekleri İncele
+                {t('hero_cta_examples')}
               </Link>
             </Button>
           </motion.div>

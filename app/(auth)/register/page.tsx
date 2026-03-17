@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { toast } from "sonner"
 import Link from "next/link"
 import { Sparkles } from "lucide-react"
+import { useTranslation } from "@/lib/i18n/context"
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("")
@@ -18,6 +19,7 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const supabase = createClient()
+  const { t } = useTranslation()
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -35,9 +37,9 @@ export default function RegisterPage() {
       })
 
       if (error) {
-        toast.error("Kayıt başarısız", { description: error.message })
+        toast.error(t('register_toast_fail'), { description: error.message })
       } else {
-        toast.success("Kayıt başarılı! 50 Hoşgeldin Krediniz yüklendi. Giriş yapabilirsiniz.")
+        toast.success(t('register_toast_success'))
         
         // Attempt to send welcome email via server action
         const { sendWelcomeEmail } = await import('@/app/actions/sendWelcomeEmail')
@@ -46,7 +48,7 @@ export default function RegisterPage() {
         router.push("/login")
       }
     } catch (err: any) {
-      toast.error("Bir hata oluştu")
+      toast.error(t('register_toast_error'))
     } finally {
       setLoading(false)
     }
@@ -63,18 +65,18 @@ export default function RegisterPage() {
               <Sparkles className="h-8 w-8 text-white" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold text-center text-white">Hesap Oluşturun</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center text-white">{t('register_title')}</CardTitle>
           <CardDescription className="text-center text-[#A0A0B0]">
-            TexStudio AI'a katılın ve ücretsiz deneme kredilerinizi alın.
+            {t('register_subtitle')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleRegister} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="fullname" className="text-white">Ad Soyad</Label>
+              <Label htmlFor="fullname" className="text-white">{t('register_name')}</Label>
               <Input 
                 id="fullname" 
-                placeholder="Ahmet Yılmaz" 
+                placeholder={t('register_placeholder_name')} 
                 required 
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
@@ -82,11 +84,11 @@ export default function RegisterPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-white">E-posta</Label>
+              <Label htmlFor="email" className="text-white">{t('register_email')}</Label>
               <Input 
                 id="email" 
                 type="email" 
-                placeholder="ornek@sirket.com" 
+                placeholder={t('register_placeholder_email')} 
                 required 
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -94,11 +96,11 @@ export default function RegisterPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-white">Şifre</Label>
+              <Label htmlFor="password" className="text-white">{t('register_password')}</Label>
               <Input 
                 id="password" 
                 type="password"
-                placeholder="En az 6 karakter"
+                placeholder={t('register_placeholder_password')}
                 required
                 minLength={6}
                 value={password}
@@ -111,14 +113,14 @@ export default function RegisterPage() {
               className="w-full bg-[#FF6584] hover:bg-[#e05673] text-white" 
               disabled={loading}
             >
-              {loading ? "Hesap Oluşturuluyor..." : "Kayıt Ol"}
+              {loading ? t('register_creating') : t('register_btn')}
             </Button>
           </form>
         </CardContent>
         <CardFooter className="flex justify-center text-sm text-[#A0A0B0]">
-          Zaten hesabınız var mı?{' '}
+          {t('register_have_account')}{' '}
           <Link href="/login" className="ml-1 text-[#6C63FF] hover:underline font-medium">
-            Giriş Yapın
+            {t('register_login_link')}
           </Link>
         </CardFooter>
       </Card>

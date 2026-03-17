@@ -105,12 +105,12 @@ export default function StudioPage() {
   }, [isGenerating])
 
   const progressMessages = [
-    "Stüdyo ortamı hazırlanıyor...",
-    "Ürün görseli yükleniyor...",
-    "Kumaş ve desen analiz ediliyor...",
-    "Gelişmiş AI VTON modeli uygulanıyor...",
-    "Işık ve gölgeler render ediliyor...",
-    "Son sanatsal dokunuşlar ekleniyor..."
+    t('studio_progress_1'),
+    t('studio_progress_2'),
+    t('studio_progress_3'),
+    t('studio_progress_4'),
+    t('studio_progress_5'),
+    t('studio_progress_6')
   ]
 
   useEffect(() => {
@@ -123,7 +123,7 @@ export default function StudioPage() {
 
   const detectFabric = async (sourceFile: File) => {
     setIsDetectingFabric(true)
-    const toastId = toast.loading("Kumaş türü analiz ediliyor...")
+    const toastId = toast.loading(t('studio_fabric_analyzing'))
     try {
       const reader = new FileReader()
       reader.readAsDataURL(sourceFile)
@@ -141,7 +141,7 @@ export default function StudioPage() {
             if (data.textureDetails) {
               setExtractedTexture(data.textureDetails)
             }
-            toast.success(`Kumaş tespit edildi: ${FABRIC_CONFIG[data.fabric as FabricType].label}`, { id: toastId })
+            toast.success(`${t('studio_fabric_detected')} ${FABRIC_CONFIG[data.fabric as FabricType].label}`, { id: toastId })
             return
           }
         }
@@ -192,13 +192,20 @@ export default function StudioPage() {
     e.preventDefault()
     if (!file || !selectedGender || !selectedEthnicity || !selectedConcept) return
 
+    // Client-side auth kontrolü — giriş yapmadan üretim yapılamaz
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.user) {
+      toast.error(t('studio_login_required'))
+      window.location.href = '/login'
+      return
+    }
+
     setIsGenerating(true)
     setShowPreview(true)
     setProgressStep(1)
 
     try {
       // ─── P3: Texture Preservation (Sharpening Pre-processing) ───
-      // Send original file to our sharpening API to make fine textures pop
       const reader = new FileReader()
       const base64Promise = new Promise<string>((resolve, reject) => {
         reader.onload = () => resolve((reader.result as string).split(',')[1])
@@ -207,15 +214,28 @@ export default function StudioPage() {
       reader.readAsDataURL(file)
       const originalBase64 = await base64Promise
 
-      const sharpenRes = await fetch('/api/sharpen-image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ base64Image: originalBase64 })
-      })
+      // Sharpen API — 15s timeout ile
+      const sharpenController = new AbortController()
+      const sharpenTimeout = setTimeout(() => sharpenController.abort(), 15000)
+      
+      let sharpenRes: Response | null = null
+      try {
+        sharpenRes = await fetch('/api/sharpen-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ base64Image: originalBase64 }),
+          signal: sharpenController.signal
+        })
+      } catch {
+        // Sharpen API zaman aşımı veya hata — orijinal dosya ile devam et
+        console.warn('Sharpen API skipped (timeout/error)')
+      } finally {
+        clearTimeout(sharpenTimeout)
+      }
 
       let fileToUpload = file
       
-      if (sharpenRes.ok) {
+      if (sharpenRes?.ok) {
         const sharpenData = await sharpenRes.json()
         if (sharpenData.success && sharpenData.sharpenedImage) {
           // Convert sharpened base64 back to File object
@@ -244,7 +264,7 @@ export default function StudioPage() {
 
       if (uploadError) {
         console.error('Upload error:', uploadError)
-        throw new Error(`Görsel yüklenemedi: ${uploadError.message}`)
+        throw new Error(`${t('studio_upload_error')} ${uploadError.message}`)
       }
       
       const { data: { publicUrl } } = supabase.storage
@@ -285,6 +305,10 @@ export default function StudioPage() {
         }
       }
 
+      // Generate API — 5 dakika timeout
+      const generateController = new AbortController()
+      const generateTimeout = setTimeout(() => generateController.abort(), 300000) // 5 min
+
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: {
@@ -302,14 +326,16 @@ export default function StudioPage() {
             faceReferenceUrl: useSavedModel && faceReferenceUrl ? faceReferenceUrl : uploadedFaceUrl,
             backImageUrl: uploadedBackUrl,
           }),
+        signal: generateController.signal,
       })
+      clearTimeout(generateTimeout)
 
       setProgressStep(3)
 
       const responseData = await response.json()
 
       if (!response.ok) {
-        throw new Error(responseData.error || "Üretim hatası")
+        throw new Error(responseData.error || t('studio_generation_error'))
       }
 
       setResults(responseData.images)
@@ -318,13 +344,13 @@ export default function StudioPage() {
       setIsGenerating(false)
       setProgressStep(4)
       
-      toast.success("Tebrikler! 4 adet profesyonel katalog görseliniz hazır.", {
+      toast.success(t('studio_toast_success'), {
         position: 'top-center',
         className: 'bg-zinc-900 border-zinc-800 text-white'
       });
       
     } catch (err: any) {
-      toast.error("Hata Oluştu", { 
+      toast.error(t('studio_toast_error'), { 
         description: err.message,
         position: 'top-center'
       })
@@ -338,7 +364,7 @@ export default function StudioPage() {
 
   const handleSaveModel = async () => {
     if (!saveModelName.trim()) {
-      toast.error('Lütfen bir isim girin')
+      toast.error(t('studio_save_name_required'))
       return
     }
     setSavingModel(true)
@@ -348,7 +374,7 @@ export default function StudioPage() {
       if (!session?.user) throw new Error('Giriş yapın')
       
       const faceImageUrl = results[0]?.image_url
-      if (!faceImageUrl) throw new Error('Görsel bulunamadı')
+      if (!faceImageUrl) throw new Error(t('studio_image_not_found'))
 
       // Timeout ile insert (sonsuz beklemeyi önle)
       const insertPromise = supabase.from('saved_models').insert({
@@ -371,7 +397,7 @@ export default function StudioPage() {
       setSaveModelName('')
     } catch (err: any) {
       console.error('handleSaveModel error:', err)
-      toast.error(err.message || 'Kayıt başarısız')
+      toast.error(err.message || t('studio_save_failed'))
     } finally {
       setSavingModel(false)
     }
@@ -384,7 +410,7 @@ export default function StudioPage() {
       results.forEach((img) => {
         window.open(img.image_url, '_blank')
       })
-      toast.info('Görseller yeni sekmelerde açıldı. Uzun basarak kaydet.', { position: 'top-center' })
+      toast.info(t('studio_mobile_open_toast'), { position: 'top-center' })
     } else {
       window.location.href = `/api/download?generationId=${generationId}`
     }
@@ -461,18 +487,18 @@ export default function StudioPage() {
                       ${imageUrl ? 'border-violet-500/50 bg-zinc-900/30' : 'border-zinc-300 dark:border-zinc-700 hover:border-violet-400 bg-zinc-50 dark:bg-zinc-900/30'}`}>
                       {imageUrl ? (
                         <div className="absolute inset-0 group/img">
-                          <Image src={imageUrl} alt="Ön" fill className="object-cover" />
+                          <Image src={imageUrl} alt={t('studio_front_label')} fill className="object-cover" />
                           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
                             <Label htmlFor="image-upload" className="cursor-pointer bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-full text-white font-medium text-xs transition-colors border border-white/20">
-                              Değiştir
+                              {t('studio_change')}
                             </Label>
                           </div>
-                          <div className="absolute top-2 left-2 bg-black/60 text-white text-[10px] font-bold rounded px-2 py-0.5">ÖN</div>
+                          <div className="absolute top-2 left-2 bg-black/60 text-white text-[10px] font-bold rounded px-2 py-0.5">{t('studio_front_label')}</div>
                         </div>
                       ) : (
                         <label htmlFor="image-upload" className="cursor-pointer flex flex-col items-center gap-2 p-4 text-center">
                           <UploadCloud className="w-8 h-8 text-zinc-400" />
-                          <p className="text-xs font-medium text-zinc-500">Ön görsel yükle</p>
+                          <p className="text-xs font-medium text-zinc-500">{t('studio_front_upload')}</p>
                         </label>
                       )}
                       <Input 
@@ -490,19 +516,19 @@ export default function StudioPage() {
                       ${backImageUrl ? 'border-emerald-500/50 bg-zinc-900/30' : 'border-red-300 dark:border-red-700 hover:border-violet-400 bg-zinc-50 dark:bg-zinc-900/30'}`}>
                       {backImageUrl ? (
                         <div className="absolute inset-0 group/back">
-                          <Image src={backImageUrl} alt="Arka" fill className="object-cover" />
+                          <Image src={backImageUrl} alt={t('studio_back_label')} fill className="object-cover" />
                           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/back:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
                             <button type="button" onClick={removeBackFile} className="bg-red-500/80 hover:bg-red-500 px-3 py-1.5 rounded-full text-white font-medium text-xs transition-colors">
                               {t('studio_back_remove')}
                             </button>
                           </div>
-                          <div className="absolute top-2 left-2 bg-black/60 text-white text-[10px] font-bold rounded px-2 py-0.5">ARKA</div>
+                          <div className="absolute top-2 left-2 bg-black/60 text-white text-[10px] font-bold rounded px-2 py-0.5">{t('studio_back_label')}</div>
                         </div>
                       ) : (
                         <label htmlFor="back-upload" className="cursor-pointer flex flex-col items-center gap-2 p-4 text-center">
                           <UploadCloud className="w-8 h-8 text-red-400" />
-                          <p className="text-xs font-medium text-red-400">Arka görsel yükle</p>
-                          <p className="text-[9px] text-zinc-400">(zorunlu)</p>
+                          <p className="text-xs font-medium text-red-400">{t('studio_back_upload')}</p>
+                          <p className="text-[9px] text-zinc-400">{t('studio_required')}</p>
                         </label>
                       )}
                       <Input id="back-upload" type="file" accept="image/*" className="hidden" onChange={handleBackFileUpload} />
@@ -576,11 +602,11 @@ export default function StudioPage() {
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <Settings2 className="w-4 h-4 text-zinc-500" />
-                    <Label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">{t('studio_label_fabric')} <span className="text-xs font-normal text-zinc-400">(Opsiyonel)</span></Label>
+                    <Label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">{t('studio_label_fabric')} <span className="text-xs font-normal text-zinc-400">{t('studio_optional')}</span></Label>
                   </div>
                   <Select value={selectedFabric || ""} onValueChange={(val) => setSelectedFabric(val as FabricType)} disabled={isDetectingFabric}>
                     <SelectTrigger className="w-full h-12 bg-zinc-50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 rounded-xl focus:ring-violet-500">
-                      <SelectValue placeholder={isDetectingFabric ? 'Otomatik tespit ediliyor...' : 'Otomatik tespit...'} />
+                      <SelectValue placeholder={isDetectingFabric ? t('studio_auto_detecting') : t('studio_auto_detect')} />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl border-zinc-200 dark:border-zinc-800 z-50">
                       {Object.entries(FABRIC_CONFIG).map(([key, config]) => (
@@ -596,7 +622,7 @@ export default function StudioPage() {
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <PersonStanding className="w-4 h-4 text-zinc-500" />
-                    <Label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">{t('studio_label_pose')} <span className="text-xs font-normal text-zinc-400">(Opsiyonel)</span></Label>
+                    <Label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">{t('studio_label_pose')} <span className="text-xs font-normal text-zinc-400">{t('studio_optional')}</span></Label>
                   </div>
                   <Select value={selectedPose} onValueChange={(val) => setSelectedPose(val)}>
                     <SelectTrigger className="w-full h-12 bg-zinc-50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 rounded-xl focus:ring-violet-500">
@@ -616,10 +642,10 @@ export default function StudioPage() {
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-zinc-500" />
-                    <Label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">{t('studio_label_accessories')} <span className="text-xs font-normal text-zinc-400">(Opsiyonel)</span></Label>
+                    <Label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">{t('studio_label_accessories')} <span className="text-xs font-normal text-zinc-400">{t('studio_optional')}</span></Label>
                   </div>
                   <Input 
-                    placeholder="örn. siyah güneş gözlüğü, gümüş küpeler, deri çanta..." 
+                    placeholder={t('studio_accessories_placeholder')} 
                     value={selectedAccessories} 
                     onChange={(e) => setSelectedAccessories(e.target.value)} 
                     className="h-12 bg-zinc-50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 rounded-xl focus:ring-violet-500"
@@ -630,7 +656,7 @@ export default function StudioPage() {
                 <div className="space-y-3 pt-4 border-t border-zinc-100 dark:border-zinc-800/50">
                   <div className="flex items-center gap-2">
                     <UserCircle className="w-4 h-4 text-zinc-500" />
-                    <Label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">{t('studio_label_face')} <span className="text-xs font-normal text-zinc-400">(Opsiyonel)</span></Label>
+                    <Label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">{t('studio_label_face')} <span className="text-xs font-normal text-zinc-400">{t('studio_optional')}</span></Label>
                   </div>
                   <p className="text-xs text-zinc-500">{t('studio_face_desc')}</p>
                   
@@ -641,14 +667,14 @@ export default function StudioPage() {
                         onClick={() => { setUseSavedModel(false); setFaceReferenceUrl(null); }}
                         className={`flex-1 text-xs font-semibold py-1.5 rounded-md transition-colors ${!useSavedModel ? 'bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-white' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
                       >
-                        Yeni Yükle
+                        {t('studio_face_new_upload')}
                       </button>
                       <button 
                         type="button"
                         onClick={() => { setUseSavedModel(true); setFaceFile(null); setFacePreviewUrl(null); }}
                         className={`flex-1 text-xs font-semibold py-1.5 rounded-md transition-colors ${useSavedModel ? 'bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-white' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
                       >
-                        Kayıtlı Modeller
+                        {t('studio_face_saved_models')}
                       </button>
                     </div>
                   )}
@@ -659,7 +685,7 @@ export default function StudioPage() {
                       <div className="w-full">
                         <Select value={faceReferenceUrl || ""} onValueChange={(val) => setFaceReferenceUrl(val)}>
                           <SelectTrigger className="w-full bg-transparent border-0 ring-0 focus:ring-0 shadow-none">
-                            <SelectValue placeholder="Kayıtlı model seçin..." />
+                            <SelectValue placeholder={t('studio_face_select_saved')} />
                           </SelectTrigger>
                           <SelectContent className="rounded-xl border-zinc-200 dark:border-zinc-800 z-50 max-h-48">
                             {savedModels.map((m) => (
@@ -681,7 +707,7 @@ export default function StudioPage() {
                             <div>
                               <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{faceFile?.name}</p>
                               <button type="button" onClick={() => { setFaceFile(null); setFacePreviewUrl(null); setFaceReferenceUrl(null) }} className="text-xs text-red-500 hover:text-red-400">
-                                Kaldır
+                                {t('studio_face_remove')}
                               </button>
                             </div>
                           </div>
@@ -690,7 +716,7 @@ export default function StudioPage() {
                             <div className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
                               <UserCircle className="w-5 h-5 text-zinc-400" />
                             </div>
-                            <span className="text-sm text-zinc-500">Yüz referansı yüklemek için tıklayın</span>
+                            <span className="text-sm text-zinc-500">{t('studio_face_upload_click')}</span>
                           </label>
                         )}
                         <Input
@@ -778,13 +804,13 @@ export default function StudioPage() {
                              <button
                                onClick={() => handleDownloadSingle(img.image_url)}
                                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 hover:bg-black/80 text-white rounded-lg p-1.5"
-                               title="İndir"
+                               title={t('studio_download_title')}
                              >
                                <Download className="w-3 h-3" />
                              </button>
                              {/* Pozisyon etiketi */}
                              <div className="absolute bottom-2 right-2 bg-black/50 text-white text-[9px] font-bold rounded px-1.5 py-0.5">
-                               {i === results.length - 1 ? 'ARKA' : `#${i + 1}`}
+                               {i === results.length - 1 ? t('studio_result_back_label') : `#${i + 1}`}
                              </div>
                            </div>
                         ))}
