@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
       const poseUrl = poseKey && poseKey !== 'auto' ? POSE_CONFIG[poseKey]?.poseUrl : undefined
 
       if (backImageUrl) {
-        // ── Çift açı modu: 3 ön + 1 arka ──────────────────────────────────
+        // ── Çift açı modu: 3 ön + 1 arka = 4 toplam ────────────────────
         // Paralel çağrı: her iki FASHN isteği aynı anda başlıyor.
         const frontPromise = productToModel({
           productImageUrl: imageUrl,
@@ -131,8 +131,8 @@ export async function POST(req: NextRequest) {
         })
 
         const [frontUrls, backUrls] = await Promise.all([frontPromise, backPromise])
-        // Arka görsel sona ekleniyor (4. fotoğraf = arka açı)
-        imageUrls = [...frontUrls, ...backUrls]
+        // FASHN bazen istenen sayıdan fazla döndürebilir → kesin sınırla
+        imageUrls = [...frontUrls.slice(0, 3), ...backUrls.slice(0, 1)]
       } else {
         // ── Tek açı modu: 4 ön ───────────────────────────────────────────
         const fashnOptions: any = {
@@ -144,7 +144,8 @@ export async function POST(req: NextRequest) {
           resolution: '4k',
         }
         if (poseUrl) fashnOptions.poseImageUrl = poseUrl
-        imageUrls = await productToModel(fashnOptions)
+        const rawUrls = await productToModel(fashnOptions)
+        imageUrls = rawUrls.slice(0, 4)
       }
 
     } catch (apiError: any) {
