@@ -90,9 +90,11 @@ export async function productToModel(options: {
   aspectRatio?: string
   resolution?: '1k' | '4k'
 }): Promise<string[]> {
+  const requestedCount = options.numImages || 4
+
   const inputs: Record<string, any> = {
     product_image: options.productImageUrl,
-    num_images: options.numImages || 4,
+    num_images: requestedCount,
     aspect_ratio: options.aspectRatio || '3:4',
     resolution: options.resolution || '1k',
     output_format: 'jpeg',
@@ -100,8 +102,6 @@ export async function productToModel(options: {
   }
 
   // Prompt enjeksiyonu — anatomi hata engelleyici + kullanıcı prompt'u
-  // NOT: FASHN product-to-model negative_prompt parametresi DESTEKLEMIYOR.
-  // Negatif ifadeler pozitif prompt içine eklendi.
   const safetyPrompt = 'realistic skin texture, natural lighting, fashion editorial, both arms fully visible, complete arms with hands, full body anatomy'
   
   if (options.prompt) {
@@ -109,10 +109,6 @@ export async function productToModel(options: {
   } else {
     inputs.prompt = safetyPrompt
   }
-
-  // NOT: FASHN product-to-model, image_context parametresini DESTEKLEMIYOR.
-  // Arka açı görseli şu an sadece prompt ile telafi edilebilir.
-  // Bu parametre ileride FASHN'ın farklı bir endpoint'i desteklerse kullanılacak.
 
   // Face reference (tutarlı model yüzü)
   if (options.faceReferenceUrl) {
@@ -125,12 +121,22 @@ export async function productToModel(options: {
     inputs.background_reference = options.backgroundReferenceUrl
   }
 
+  console.log(`[FASHN] Requesting ${requestedCount} image(s), resolution: ${inputs.resolution}`)
+
   const predictionId = await fashnPost('/run', {
     model_name: 'product-to-model',
     inputs,
   })
 
-  return fashnPoll(predictionId)
+  const results = await fashnPoll(predictionId)
+  
+  console.log(`[FASHN] Requested: ${requestedCount}, Received: ${results.length}`)
+  if (results.length > requestedCount) {
+    console.warn(`[FASHN] ⚠️ Received ${results.length} images but only requested ${requestedCount}! Trimming to save costs.`)
+  }
+
+  // Kesin sınır — FASHN fazla döndürse bile sadece istenen kadarını kullan
+  return results.slice(0, requestedCount)
 }
 
 
