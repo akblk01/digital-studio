@@ -32,13 +32,17 @@ export default function LoginPage() {
 
       if (error) {
         toast.error(t('login_toast_fail'), { description: error.message })
+        setLoading(false)
       } else {
         toast.success(t('login_toast_success'))
-        router.push("/studio")
+        // router.push middleware cookie race condition yaratıyor
+        // window.location tam sayfa yenileme yaparak cookie'lerin gönderilmesini garanti eder
+        setTimeout(() => {
+          window.location.href = '/studio'
+        }, 500)
       }
     } catch (err: any) {
       toast.error(t('login_toast_error'))
-    } finally {
       setLoading(false)
     }
   }

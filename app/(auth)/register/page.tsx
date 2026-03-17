@@ -26,7 +26,7 @@ export default function RegisterPage() {
     setLoading(true)
     
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -38,18 +38,33 @@ export default function RegisterPage() {
 
       if (error) {
         toast.error(t('register_toast_fail'), { description: error.message })
-      } else {
-        toast.success(t('register_toast_success'))
-        
-        // Attempt to send welcome email via server action
-        const { sendWelcomeEmail } = await import('@/app/actions/sendWelcomeEmail')
-        await sendWelcomeEmail(email, fullName || 'User')
-
-        router.push("/login")
+        setLoading(false)
+        return
       }
+
+      // Supabase bazen başarılı kayıt sonrası identities boş dönebilir (email zaten kullanılıyorsa)
+      if (data?.user?.identities?.length === 0) {
+        toast.error(t('register_toast_fail'), { description: 'Bu e-posta adresi zaten kayıtlı.' })
+        setLoading(false)
+        return
+      }
+
+      toast.success(t('register_toast_success'))
+
+      // Welcome email — fire-and-forget (başarısız olursa kullanıcıyı etkilemez)
+      try {
+        const { sendWelcomeEmail } = await import('@/app/actions/sendWelcomeEmail')
+        sendWelcomeEmail(email, fullName || 'User').catch(() => {})
+      } catch {
+        // Email gönderimi opsiyonel — hatayı yut
+      }
+
+      setTimeout(() => {
+        window.location.href = '/login'
+      }, 1000)
     } catch (err: any) {
+      console.error('Register error:', err)
       toast.error(t('register_toast_error'))
-    } finally {
       setLoading(false)
     }
   }
