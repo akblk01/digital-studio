@@ -26,7 +26,7 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent } from "@/components/ui/card"
-import { APPEARANCE_CONFIG, CONCEPT_CONFIG, FABRIC_CONFIG, GENDER_CONFIG, POSE_CONFIG } from "@/types"
+import { APPEARANCE_CONFIG, CONCEPT_CONFIG, FABRIC_CONFIG, GENDER_CONFIG } from "@/types"
 import type { ModelAppearance, Concept, GeneratedImage, FabricType, Gender } from "@/types"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
@@ -44,7 +44,6 @@ export default function StudioPage() {
   const [selectedFabric, setSelectedFabric] = useState<FabricType | null>(null)
   const [extractedTexture, setExtractedTexture] = useState<string>("")
   const [selectedAccessories, setSelectedAccessories] = useState<string>("")
-  const [selectedPose, setSelectedPose] = useState<string>("auto")
   
   const [isGenerating, setIsGenerating] = useState(false)
   const [progressStep, setProgressStep] = useState(0)
@@ -274,7 +273,6 @@ export default function StudioPage() {
             fabricType: selectedFabric,
             textureDetails: extractedTexture,
             accessories: selectedAccessories,
-            poseKey: selectedPose,
             faceReferenceUrl: modelTab === 'saved' ? faceReferenceUrl : undefined,
             backImageUrl: uploadedBackUrl,
           }),
@@ -480,25 +478,6 @@ export default function StudioPage() {
                   </Select>
                 </div>
 
-                {/* Pose Reference */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <PersonStanding className="w-4 h-4 text-zinc-500" />
-                    <Label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">{t('studio_label_pose')} <span className="text-xs font-normal text-zinc-400">{t('studio_optional')}</span></Label>
-                  </div>
-                  <Select value={selectedPose} onValueChange={(val) => setSelectedPose(val)}>
-                    <SelectTrigger className="w-full h-12 bg-zinc-50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 rounded-xl focus:ring-violet-500">
-                      <SelectValue placeholder={t('studio_label_pose') + '...'} />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-xl border-zinc-200 dark:border-zinc-800 z-50">
-                      {Object.entries(POSE_CONFIG).map(([key, config]) => (
-                        <SelectItem key={key} value={key} className="cursor-pointer">
-                          {config.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
 
                 {/* Accessories (Text) */}
                 <div className="space-y-3">

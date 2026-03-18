@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { productToModel } from '@/lib/fashn'
-import { APPEARANCE_CONFIG, CONCEPT_CONFIG, FABRIC_CONFIG, POSE_CONFIG } from '@/types'
+import { APPEARANCE_CONFIG, CONCEPT_CONFIG, FABRIC_CONFIG, POSE_VARIATION_PROMPT } from '@/types'
 import type { ModelAppearance, Concept, Gender, FabricType } from '@/types'
 
 export const maxDuration = 300 // 5 dakika timeout
@@ -19,7 +19,6 @@ export async function POST(req: NextRequest) {
       fabricType, 
       textureDetails,
       accessories,
-      poseKey,
       faceReferenceUrl,
       backImageUrl
     } = await req.json() as {
@@ -30,7 +29,6 @@ export async function POST(req: NextRequest) {
       fabricType?: FabricType
       textureDetails?: string
       accessories?: string
-      poseKey?: string
       faceReferenceUrl?: string
       backImageUrl?: string
     }
@@ -41,7 +39,7 @@ export async function POST(req: NextRequest) {
 
     // Kayıtlı manken modunda appearance/concept gönderilmeyebilir — varsayılan ata
     const safeAppearance: ModelAppearance = appearance || 'brunette'
-    const safeConcept: Concept = concept || 'minimal_white'
+    const safeConcept: Concept = concept || 'catalog_white'
     const safeGender: Gender = gender || 'female'
 
 
@@ -109,21 +107,18 @@ export async function POST(req: NextRequest) {
     let imageUrls: string[] = []
 
     try {
-      const poseUrl = poseKey && poseKey !== 'auto' ? POSE_CONFIG[poseKey]?.poseUrl : undefined
-
       if (backImageUrl) {
         // ── Çift açı modu: 3 ön + 1 arka = 4 toplam ────────────────────
-        // Paralel çağrı: her iki FASHN isteği aynı anda başlıyor.
         const frontPromise = productToModel({
           productImageUrl: imageUrl,
-          prompt,
+          prompt: prompt + POSE_VARIATION_PROMPT,
           faceReferenceUrl,
           numImages: 3,
           aspectRatio: '3:4',
           resolution: '4k',
         })
 
-        const backPrompt = `${prompt}, back view of the model showing the back of the garment`
+        const backPrompt = `${prompt}, back view of the model showing the back of the garment clearly`
         const backPromise = productToModel({
           productImageUrl: backImageUrl,
           prompt: backPrompt,
@@ -134,22 +129,20 @@ export async function POST(req: NextRequest) {
         })
 
         const [frontUrls, backUrls] = await Promise.all([frontPromise, backPromise])
-        // FASHN bazen istenen sayıdan fazla döndürebilir → kesin sınırla
         imageUrls = [...frontUrls.slice(0, 3), ...backUrls.slice(0, 1)]
       } else {
         // ── Tek açı modu: 4 ön ───────────────────────────────────────────
-        const fashnOptions: any = {
+        const rawUrls = await productToModel({
           productImageUrl: imageUrl,
-          prompt,
+          prompt: prompt + POSE_VARIATION_PROMPT,
           faceReferenceUrl,
           numImages: 4,
           aspectRatio: '3:4',
           resolution: '4k',
-        }
-        if (poseUrl) fashnOptions.poseImageUrl = poseUrl
-        const rawUrls = await productToModel(fashnOptions)
+        })
         imageUrls = rawUrls.slice(0, 4)
       }
+
 
     } catch (apiError: any) {
       console.error('FASHN.ai API error:', apiError)

@@ -1,12 +1,11 @@
 export type Ethnicity = 'slavic' | 'middle_eastern' | 'european' | 'turkish' // legacy
 export type ModelAppearance = 'blonde' | 'brunette' | 'dark' | 'redhead' | 'deep'
 export type Concept = 
-  // Minimal Studio presets
-  | 'minimal_white' | 'minimal_wood' | 'minimal_silver' | 'minimal_botanical' | 'minimal_concrete'
-  // Street Fashion presets
-  | 'street_paris' | 'street_tokyo' | 'street_newyork' | 'street_london' | 'street_sunset'
-  // Luxury Showroom presets
-  | 'luxury_leather' | 'luxury_marble' | 'luxury_glass' | 'luxury_gold' | 'luxury_velvet'
+  | 'catalog_white'
+  | 'editorial_street'
+  | 'editorial_nature'
+  | 'luxury_showroom'
+  | 'lifestyle_cafe'
 
 export type Gender = 'female' | 'male'
 export type GenerationStatus = 'pending' | 'processing' | 'completed' | 'failed'
@@ -113,97 +112,37 @@ export const APPEARANCE_CONFIG: Record<ModelAppearance, {
   }
 }
 
-export const CONCEPT_CONFIG: Record<Concept, { label: string; bgPrompt: string }> = {
-  // Minimal Studio
-  minimal_white: {
-    label: 'Studio - Pure White',
-    bgPrompt: 'clean pure white cyclorama studio background, professional softbox lighting, subtle physical shadows on the floor, Vogue editorial style'
+export const CONCEPT_CONFIG: Record<Concept, { label: string; emoji: string; bgPrompt: string }> = {
+  catalog_white: {
+    label: 'Katalog (Beyaz)',
+    emoji: '📋',
+    bgPrompt: 'seamless pure white background, no visible studio equipment, no light stands, no cables, no backdrop edges, clean professional fashion catalog photography, soft even lighting from above, sharp focus on garment, e-commerce editorial style'
   },
-  minimal_wood: {
-    label: 'Studio - Wooden Stool',
-    bgPrompt: 'clean photography studio, aesthetic simple wooden stool prop, soft warm lighting, minimalist fashion aesthetic'
+  editorial_street: {
+    label: 'Sokak & Şehir',
+    emoji: '🏙️',
+    bgPrompt: 'blurred urban city street background, natural daylight, shallow depth of field, candid street fashion editorial, no studio equipment, authentic outdoor atmosphere, fashion magazine look, bokeh city scene in background'
   },
-  minimal_silver: {
-    label: 'Studio - Silver Podium',
-    bgPrompt: 'modern fashion studio, sleek silver metallic podium in background, cool softbox lighting, high-end commercial style'
+  editorial_nature: {
+    label: 'Doğa & Açık Hava',
+    emoji: '🌿',
+    bgPrompt: 'soft blurred natural outdoor background, lush greenery and foliage, warm natural sunlight, no studio equipment, fresh open air atmosphere, organic natural fashion editorial, golden hour lighting'
   },
-  minimal_botanical: {
-    label: 'Studio - Botanical',
-    bgPrompt: 'minimalist light grey studio background, large elegant monstera plant leaves softly framing the background, natural indirect sunlight'
+  luxury_showroom: {
+    label: 'Lüks Showroom',
+    emoji: '💎',
+    bgPrompt: 'elegant blurred luxury interior background, polished marble floors, warm moody ambient lighting, no visible studio equipment, premium high-end boutique atmosphere, editorial fashion campaign, cinematic light'
   },
-  minimal_concrete: {
-    label: 'Studio - Raw Concrete',
-    bgPrompt: 'brutalist fashion studio background, raw textured concrete wall, dramatic directional lighting, edgy minimalist aesthetic'
-  },
-  
-  // Street Fashion
-  street_paris: {
-    label: 'Street - Parisian Cafe',
-    bgPrompt: 'blurred Parisian boulevard background, classic French cafe exterior, natural daylight, candid street fashion editorial, bokeh'
-  },
-  street_tokyo: {
-    label: 'Street - Tokyo Neon',
-    bgPrompt: 'blurred Tokyo street at night, vibrant neon lights glowing in the background, cinematic cyberpunk aesthetic, wet asphalt reflections'
-  },
-  street_newyork: {
-    label: 'Street - NYC Crosswalk',
-    bgPrompt: 'out-of-focus New York city crosswalk background, yellow cabs in distance, daytime urban hustle, 35mm street photography style'
-  },
-  street_london: {
-    label: 'Street - London Classic',
-    bgPrompt: 'blurred classic London brick architecture background, overcast soft diffused lighting, elegant European street style'
-  },
-  street_sunset: {
-    label: 'Street - Sunset Boulevard',
-    bgPrompt: 'blurred palm tree lined boulevard at golden hour, warm glowing sunset lighting catching the hair, coastal street fashion'
-  },
-  
-  // Luxury Showroom
-  luxury_leather: {
-    label: 'Luxury - Leather Lounge',
-    bgPrompt: 'out-of-focus premium luxury lounge, dark elegant chesterfield leather sofa in background, warm moody spotlighting, high-end boutique'
-  },
-  luxury_marble: {
-    label: 'Luxury - Marble Gallery',
-    bgPrompt: 'luxury fashion showroom interior, expansive white marble floors and columns, bright elegant ambient lighting, premium fashion aesthetic'
-  },
-  luxury_glass: {
-    label: 'Luxury - Glass Palace',
-    bgPrompt: 'modern architectural glass interior background, contemporary luxury showroom, huge windows with city view, sleek clean lines'
-  },
-  luxury_gold: {
-    label: 'Luxury - Gold Accents',
-    bgPrompt: 'high-end boutique interior, warm lighting, elegant brushed brass and gold clothing racks in background, luxurious retail space'
-  },
-  luxury_velvet: {
-    label: 'Luxury - Velvet Drapes',
-    bgPrompt: 'elegant showroom backdrop with heavy dark red velvet curtains, cinematic moody lighting, haute couture fitting room atmosphere'
+  lifestyle_cafe: {
+    label: 'Lifestyle & Café',
+    emoji: '☕',
+    bgPrompt: 'blurred warm cafe or lifestyle interior background, soft window light, modern cozy aesthetic, shallow depth of field, no studio equipment, relaxed everyday fashion photography, lifestyle brand aesthetic'
   }
 }
 
+// Poz varyasyon eki — 3 ön görselde otomatik doğal çeşitlilik sağlar
+export const POSE_VARIATION_PROMPT = ', varied natural confident poses, full body fashion catalog shot'
 
-export const POSE_CONFIG: Record<string, { label: string; poseUrl: string | null }> = {
-  auto: { 
-    label: '✨ Bana Bırak (Auto)', 
-    poseUrl: null 
-  },
-  hands_in_pockets: { 
-    label: 'Eller Cepte (Hands in Pockets)', 
-    poseUrl: 'https://texstudio-ai.vercel.app/poses/hands_in_pocket.jpg' // Lütfen buraya gerçek poz resimlerini ekleyin
-  },
-  dynamic_walk: { 
-    label: 'Dinamik Yürüyüş (Dynamic Walk)', 
-    poseUrl: 'https://texstudio-ai.vercel.app/poses/dynamic_walk.jpg'
-  },
-  looking_back: { 
-    label: 'Geriye Bakış (Looking Back)', 
-    poseUrl: 'https://texstudio-ai.vercel.app/poses/looking_back.jpg'
-  },
-  hands_on_hips: { 
-    label: 'Eller Belde (Hands on Hips)', 
-    poseUrl: 'https://texstudio-ai.vercel.app/poses/hands_on_hips.jpg'
-  }
-}
 
 
 // ─── P2: Physics-Aware Draping (Enhanced) ───
