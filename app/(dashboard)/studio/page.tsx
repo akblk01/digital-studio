@@ -56,14 +56,12 @@ export default function StudioPage() {
   
   const [showPreview, setShowPreview] = useState(false) // Toggle form vs generating/results view
 
-  // Face Reference (Tutarlı Model Yüzü)
-  const [faceFile, setFaceFile] = useState<File | null>(null)
-  const [facePreviewUrl, setFacePreviewUrl] = useState<string | null>(null)
+  // Model tab: 'ai' = AI model (gender/ethnicity/concept), 'saved' = kayıtlı manken
+  const [modelTab, setModelTab] = useState<'ai' | 'saved'>('ai')
   const [faceReferenceUrl, setFaceReferenceUrl] = useState<string | null>(null)
 
   // Saved Models State
   const [savedModels, setSavedModels] = useState<any[]>([])
-  const [useSavedModel, setUseSavedModel] = useState<boolean>(false)
   const [saveModelName, setSaveModelName] = useState('')
   const [savingModel, setSavingModel] = useState(false)
 
@@ -144,13 +142,6 @@ export default function StudioPage() {
     setBackImageUrl(null)
   }
 
-  const handleFaceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const selectedFace = e.target.files[0]
-      setFaceFile(selectedFace)
-      setFacePreviewUrl(URL.createObjectURL(selectedFace))
-    }
-  }
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -158,9 +149,13 @@ export default function StudioPage() {
     // Eksik alanlar için uyarı göster ve işlemi durdur
     if (!file) { toast.error("Ön ürün görselini yüklemelisiniz."); return; }
     if (!backFile) { toast.error("Arka ürün görselini yüklemelisiniz (Zorunlu)."); return; }
-    if (!selectedGender) { toast.error("Model cinsiyetini seçmelisiniz."); return; }
-    if (!selectedEthnicity) { toast.error("Etnisite seçmelisiniz."); return; }
-    if (!selectedConcept) { toast.error("Konsept seçmelisiniz."); return; }
+    if (modelTab === 'ai') {
+      if (!selectedGender) { toast.error("Model cinsiyetini seçmelisiniz."); return; }
+      if (!selectedEthnicity) { toast.error("Etnisite seçmelisiniz."); return; }
+      if (!selectedConcept) { toast.error("Konsept seçmelisiniz."); return; }
+    } else {
+      if (!faceReferenceUrl) { toast.error("Lütfen kayıtlı bir manken seçin."); return; }
+    }
 
     // Client-side auth kontrolü — giriş yapmadan üretim yapılamaz
     const { data: { session } } = await supabase.auth.getSession()
@@ -243,21 +238,8 @@ export default function StudioPage() {
 
       setProgressStep(2)
 
-      // Face reference varsa onu da Supabase'e yükle
-      let uploadedFaceUrl: string | undefined
-      if (faceFile) {
-        const faceExt = faceFile.name.split('.').pop()
-        const faceName = `faces/${Math.random()}.${faceExt}`
-        const { error: faceUploadErr } = await supabase.storage
-          .from('product-images')
-          .upload(faceName, faceFile)
-        if (!faceUploadErr) {
-          const { data: { publicUrl: facePublicUrl } } = supabase.storage
-            .from('product-images')
-            .getPublicUrl(faceName)
-          uploadedFaceUrl = facePublicUrl
-        }
-      }
+      // Face reference varsa (sadece saved model tab'ında kullanılır)
+      // faceFile upload kaldırıldı — sadece saved model URL'leri kullanılır
 
       // Back-angle görsel varsa Supabase'e yükle
       let uploadedBackUrl: string | undefined
@@ -293,7 +275,7 @@ export default function StudioPage() {
             textureDetails: extractedTexture,
             accessories: selectedAccessories,
             poseKey: selectedPose,
-            faceReferenceUrl: useSavedModel && faceReferenceUrl ? faceReferenceUrl : uploadedFaceUrl,
+            faceReferenceUrl: modelTab === 'saved' ? faceReferenceUrl : undefined,
             backImageUrl: uploadedBackUrl,
           }),
         signal: generateController.signal,
@@ -478,68 +460,6 @@ export default function StudioPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                  {/* Select Gender */}
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <User className="w-4 h-4 text-zinc-500" />
-                      <Label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">{t('studio_label_gender')}</Label>
-                    </div>
-                    <Select value={selectedGender || ""} onValueChange={(val) => setSelectedGender(val as Gender)} required>
-                      <SelectTrigger className="w-full h-12 bg-zinc-50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 rounded-xl focus:ring-violet-500">
-                        <SelectValue placeholder={t('studio_label_gender') + '...'} />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-xl border-zinc-200 dark:border-zinc-800 z-50">
-                        {Object.entries(GENDER_CONFIG).map(([key, config]) => (
-                          <SelectItem key={key} value={key} className="cursor-pointer">
-                            {config.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Select Ethnicity */}
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <Eye className="w-4 h-4 text-zinc-500" />
-                      <Label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">{t('studio_label_ethnicity')}</Label>
-                    </div>
-                    <Select value={selectedEthnicity || ""} onValueChange={(val) => setSelectedEthnicity(val as Ethnicity)} required>
-                      <SelectTrigger className="w-full h-12 bg-zinc-50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 rounded-xl focus:ring-violet-500">
-                        <SelectValue placeholder={t('studio_label_ethnicity') + '...'} />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-xl border-zinc-200 dark:border-zinc-800 z-50">
-                        {Object.entries(ETHNICITY_CONFIG).map(([key, config]) => (
-                          <SelectItem key={key} value={key} className="cursor-pointer">
-                            {config.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Select Concept */}
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <Layers className="w-4 h-4 text-zinc-500" />
-                      <Label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">{t('studio_label_concept')}</Label>
-                    </div>
-                    <Select value={selectedConcept || ""} onValueChange={(val) => setSelectedConcept(val as Concept)} required>
-                      <SelectTrigger className="w-full h-12 bg-zinc-50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 rounded-xl focus:ring-violet-500">
-                        <SelectValue placeholder={t('studio_label_concept') + '...'} />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-xl border-zinc-200 dark:border-zinc-800 z-50">
-                        {Object.entries(CONCEPT_CONFIG).map(([key, config]) => (
-                          <SelectItem key={key} value={key} className="cursor-pointer">
-                            {config.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
                 {/* Fabric Type (Physics-Aware Draping) */}
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
@@ -594,83 +514,134 @@ export default function StudioPage() {
                   />
                 </div>
 
-                {/* Face Reference (Opsiyonel) */}
+                {/* Model Seçimi — 2 Sekme */}
                 <div className="space-y-3 pt-4 border-t border-zinc-100 dark:border-zinc-800/50">
-                  <div className="flex items-center gap-2">
-                    <UserCircle className="w-4 h-4 text-zinc-500" />
-                    <Label className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">{t('studio_label_face')} <span className="text-xs font-normal text-zinc-400">{t('studio_optional')}</span></Label>
+                  {/* Tab bar */}
+                  <div className="flex bg-zinc-100 dark:bg-zinc-800/60 p-1 rounded-xl gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setModelTab('ai')}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-lg transition-all ${
+                        modelTab === 'ai'
+                          ? 'bg-white dark:bg-zinc-700 shadow text-zinc-900 dark:text-white'
+                          : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+                      }`}
+                    >
+                      <User className="w-3.5 h-3.5" />
+                      AI Model
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setModelTab('saved')}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold rounded-lg transition-all ${
+                        modelTab === 'saved'
+                          ? 'bg-white dark:bg-zinc-700 shadow text-zinc-900 dark:text-white'
+                          : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+                      }`}
+                    >
+                      <Bookmark className="w-3.5 h-3.5" />
+                      {t('studio_face_saved_models')}
+                    </button>
                   </div>
-                  <p className="text-xs text-zinc-500">{t('studio_face_desc')}</p>
-                  
-                  {savedModels.length > 0 && (
-                    <div className="flex bg-zinc-100 dark:bg-zinc-800 p-1 rounded-lg mb-2">
-                      <button 
-                        type="button"
-                        onClick={() => { setUseSavedModel(false); setFaceReferenceUrl(null); }}
-                        className={`flex-1 text-xs font-semibold py-1.5 rounded-md transition-colors ${!useSavedModel ? 'bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-white' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
-                      >
-                        {t('studio_face_new_upload')}
-                      </button>
-                      <button 
-                        type="button"
-                        onClick={() => { setUseSavedModel(true); setFaceFile(null); setFacePreviewUrl(null); }}
-                        className={`flex-1 text-xs font-semibold py-1.5 rounded-md transition-colors ${useSavedModel ? 'bg-white dark:bg-zinc-700 shadow-sm text-zinc-900 dark:text-white' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
-                      >
-                        {t('studio_face_saved_models')}
-                      </button>
+
+                  {/* AI Model Tab */}
+                  {modelTab === 'ai' && (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {/* Gender */}
+                        <div className="space-y-2">
+                          <Label className="text-xs font-semibold text-zinc-600 dark:text-zinc-400 flex items-center gap-1.5">
+                            <User className="w-3.5 h-3.5" />{t('studio_label_gender')}
+                          </Label>
+                          <Select value={selectedGender || ""} onValueChange={(val) => setSelectedGender(val as Gender)}>
+                            <SelectTrigger className="w-full h-10 bg-zinc-50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 rounded-xl focus:ring-violet-500 text-xs">
+                              <SelectValue placeholder={t('studio_label_gender') + '...'} />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl border-zinc-200 dark:border-zinc-800 z-50">
+                              {Object.entries(GENDER_CONFIG).map(([key, config]) => (
+                                <SelectItem key={key} value={key} className="cursor-pointer">{config.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        {/* Ethnicity */}
+                        <div className="space-y-2">
+                          <Label className="text-xs font-semibold text-zinc-600 dark:text-zinc-400 flex items-center gap-1.5">
+                            <Eye className="w-3.5 h-3.5" />{t('studio_label_ethnicity')}
+                          </Label>
+                          <Select value={selectedEthnicity || ""} onValueChange={(val) => setSelectedEthnicity(val as Ethnicity)}>
+                            <SelectTrigger className="w-full h-10 bg-zinc-50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 rounded-xl focus:ring-violet-500 text-xs">
+                              <SelectValue placeholder={t('studio_label_ethnicity') + '...'} />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl border-zinc-200 dark:border-zinc-800 z-50">
+                              {Object.entries(ETHNICITY_CONFIG).map(([key, config]) => (
+                                <SelectItem key={key} value={key} className="cursor-pointer">{config.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        {/* Concept */}
+                        <div className="space-y-2">
+                          <Label className="text-xs font-semibold text-zinc-600 dark:text-zinc-400 flex items-center gap-1.5">
+                            <Layers className="w-3.5 h-3.5" />{t('studio_label_concept')}
+                          </Label>
+                          <Select value={selectedConcept || ""} onValueChange={(val) => setSelectedConcept(val as Concept)}>
+                            <SelectTrigger className="w-full h-10 bg-zinc-50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 rounded-xl focus:ring-violet-500 text-xs">
+                              <SelectValue placeholder={t('studio_label_concept') + '...'} />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl border-zinc-200 dark:border-zinc-800 z-50">
+                              {Object.entries(CONCEPT_CONFIG).map(([key, config]) => (
+                                <SelectItem key={key} value={key} className="cursor-pointer">{config.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
                     </div>
                   )}
 
-                  <div className="relative border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl p-4 hover:border-violet-400 transition-colors cursor-pointer min-h-[90px] flex flex-col justify-center">
-                    
-                    {useSavedModel ? (
-                      <div className="w-full">
-                        <Select value={faceReferenceUrl || ""} onValueChange={(val) => setFaceReferenceUrl(val)}>
-                          <SelectTrigger className="w-full bg-transparent border-0 ring-0 focus:ring-0 shadow-none">
-                            <SelectValue placeholder={t('studio_face_select_saved')} />
-                          </SelectTrigger>
-                          <SelectContent className="rounded-xl border-zinc-200 dark:border-zinc-800 z-50 max-h-48">
-                            {savedModels.map((m) => (
-                              <SelectItem key={m.id} value={m.face_image_url} className="cursor-pointer">
-                                <div className="flex items-center gap-3">
-                                  <Image src={m.face_image_url} alt={m.model_name} width={24} height={24} className="rounded-full object-cover w-6 h-6 border border-zinc-200 dark:border-zinc-700" />
-                                  <span>{m.model_name}</span>
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    ) : (
-                      <>
-                        {facePreviewUrl ? (
-                          <div className="flex items-center gap-3">
-                            <img src={facePreviewUrl} alt="Face" className="rounded-full object-cover w-12 h-12" />
-                            <div>
-                              <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{faceFile?.name}</p>
-                              <button type="button" onClick={() => { setFaceFile(null); setFacePreviewUrl(null); setFaceReferenceUrl(null) }} className="text-xs text-red-500 hover:text-red-400">
-                                {t('studio_face_remove')}
-                              </button>
-                            </div>
+                  {/* Saved Models Tab */}
+                  {modelTab === 'saved' && (
+                    <div>
+                      {savedModels.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-6 gap-3 rounded-xl border-2 border-dashed border-zinc-200 dark:border-zinc-800 text-center">
+                          <div className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
+                            <UserCircle className="w-5 h-5 text-zinc-400" />
                           </div>
-                        ) : (
-                          <label htmlFor="face-upload" className="flex items-center gap-3 cursor-pointer">
-                            <div className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
-                              <UserCircle className="w-5 h-5 text-zinc-400" />
-                            </div>
-                            <span className="text-sm text-zinc-500">{t('studio_face_upload_click')}</span>
-                          </label>
-                        )}
-                        <Input
-                          id="face-upload"
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={handleFaceUpload}
-                        />
-                      </>
-                    )}
-                  </div>
+                          <div>
+                            <p className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Kayıtlı manken bulunamadı</p>
+                            <p className="text-xs text-zinc-400 mt-0.5">Bir üretim yaptıktan sonra mankeni kaydedebilirsiniz</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setModelTab('ai')}
+                            className="text-xs text-violet-500 hover:text-violet-400 font-medium"
+                          >
+                            AI Model kullan →
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-2">
+                          {savedModels.map((m) => (
+                            <button
+                              key={m.id}
+                              type="button"
+                              onClick={() => setFaceReferenceUrl(faceReferenceUrl === m.face_image_url ? null : m.face_image_url)}
+                              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border-2 transition-all text-left ${
+                                faceReferenceUrl === m.face_image_url
+                                  ? 'border-violet-500 bg-violet-500/10 dark:bg-violet-500/20'
+                                  : 'border-zinc-200 dark:border-zinc-800 hover:border-violet-400 bg-zinc-50 dark:bg-zinc-900/30'
+                              }`}
+                            >
+                              <Image src={m.face_image_url} alt={m.model_name} width={32} height={32} className="rounded-full object-cover w-8 h-8 border-2 border-white dark:border-zinc-700 flex-shrink-0" />
+                              <span className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">{m.model_name}</span>
+                              {faceReferenceUrl === m.face_image_url && <CheckCircle2 className="w-4 h-4 text-violet-500 ml-auto flex-shrink-0" />}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
