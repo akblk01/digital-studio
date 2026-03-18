@@ -154,7 +154,13 @@ export default function StudioPage() {
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!file || !selectedGender || !selectedEthnicity || !selectedConcept) return
+    
+    // Eksik alanlar için uyarı göster ve işlemi durdur
+    if (!file) { toast.error("Ön ürün görselini yüklemelisiniz."); return; }
+    if (!backFile) { toast.error("Arka ürün görselini yüklemelisiniz (Zorunlu)."); return; }
+    if (!selectedGender) { toast.error("Model cinsiyetini seçmelisiniz."); return; }
+    if (!selectedEthnicity) { toast.error("Etnisite seçmelisiniz."); return; }
+    if (!selectedConcept) { toast.error("Konsept seçmelisiniz."); return; }
 
     // Client-side auth kontrolü — giriş yapmadan üretim yapılamaz
     const { data: { session } } = await supabase.auth.getSession()
@@ -700,8 +706,7 @@ export default function StudioPage() {
               <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800/50 mt-4">
                 <button
                   type="submit"
-                  disabled={!file || !backFile || !selectedEthnicity || !selectedConcept}
-                  className="w-full h-12 flex items-center justify-center gap-2 bg-gradient-to-r from-fuchsia-500 to-violet-500 hover:from-fuchsia-600 hover:to-violet-600 text-white text-sm font-bold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg disabled:shadow-none"
+                  className="w-full h-12 flex items-center justify-center gap-2 bg-gradient-to-r from-fuchsia-500 to-violet-500 hover:from-fuchsia-600 hover:to-violet-600 text-white text-sm font-bold rounded-xl transition-all shadow-md hover:shadow-lg focus:ring-2 focus:ring-violet-500 focus:ring-offset-2 dark:focus:ring-offset-zinc-900"
                 >
                   <Sparkles className="w-4 h-4" />
                   {t('studio_btn_generate')}
