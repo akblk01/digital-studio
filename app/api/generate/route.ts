@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { productToModel } from '@/lib/fashn'
-import { ETHNICITY_CONFIG, CONCEPT_CONFIG, GENDER_CONFIG, FABRIC_CONFIG, POSE_CONFIG } from '@/types'
-import type { Ethnicity, Concept, Gender, FabricType } from '@/types'
+import { APPEARANCE_CONFIG, CONCEPT_CONFIG, FABRIC_CONFIG, POSE_CONFIG } from '@/types'
+import type { ModelAppearance, Concept, Gender, FabricType } from '@/types'
 
 export const maxDuration = 300 // 5 dakika timeout
 
@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     
     const { 
       imageUrl, 
-      ethnicity, 
+      appearance,
       concept, 
       gender,
       fabricType, 
@@ -21,10 +21,10 @@ export async function POST(req: NextRequest) {
       accessories,
       poseKey,
       faceReferenceUrl,
-      backImageUrl         // Arka açı: sırt dekoltesi, sırt baskısı vb.
+      backImageUrl
     } = await req.json() as {
       imageUrl: string
-      ethnicity?: Ethnicity
+      appearance?: ModelAppearance
       concept?: Concept
       gender?: Gender
       fabricType?: FabricType
@@ -39,10 +39,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Eksik parametre' }, { status: 400 })
     }
 
-    // Kayıtlı manken modunda ethnicity/concept gönderilmeyebilir — varsayılan ata
-    const safeEthnicity: Ethnicity = ethnicity || 'european'
+    // Kayıtlı manken modunda appearance/concept gönderilmeyebilir — varsayılan ata
+    const safeAppearance: ModelAppearance = appearance || 'brunette'
     const safeConcept: Concept = concept || 'minimal_white'
-
     const safeGender: Gender = gender || 'female'
 
 
@@ -80,33 +79,31 @@ export async function POST(req: NextRequest) {
       .insert({
         user_id: userId,
         original_image_url: imageUrl,
-        ethnicity: safeEthnicity,
+        ethnicity: safeAppearance, // appearance değerini legacy kolona yaz
         concept: safeConcept,
         gender: safeGender,
         status: 'processing',
-        credits_used: requiredCredits, // Update credits_used
+        credits_used: requiredCredits,
       })
       .select('id')
       .single()
 
     if (genError) throw genError
 
-    // 3. FASHN.ai product-to-model — TEK API ÇAĞRISI ile 4 görsel üret
-    // Eski 2 aşamalı pipeline (Flux Pro + VTON) tamamen kaldırıldı.
-    const genderPrompt = GENDER_CONFIG[safeGender].promptModifier
-    const ethnicityPrompt = ETHNICITY_CONFIG[safeEthnicity].modelPrompt
+    // 3. Fenotip × Cinsiyet prompt matrisi ile prompt oluştur
+    const appearanceConfig = APPEARANCE_CONFIG[safeAppearance]
+    const modelPrompt = faceReferenceUrl
+      ? 'A professional fashion model'
+      : (safeGender === 'female' ? appearanceConfig.femalePrompt : appearanceConfig.malePrompt)
+    
     const conceptPrompt = CONCEPT_CONFIG[safeConcept].bgPrompt
     const fabricConfig = fabricType ? FABRIC_CONFIG[fabricType] : null
     const drapePrompt = fabricConfig?.drapePrompt || ''
     const negativePrompt = fabricConfig?.negativePrompt || ''
-    
-    // STRATEGY 1: Inject dynamic texture details extracted by Vision API (e.g. "heathered melange")
     const texturePromptSegment = textureDetails ? `. PRESERVE THIS EXACT TEXTURE: ${textureDetails}` : ''
     const accessoriesPromptSegment = accessories ? `, wearing ${accessories}` : ''
     
-    const prompt = faceReferenceUrl
-      ? `A professional fashion model${accessoriesPromptSegment}, ${conceptPrompt}${drapePrompt ? `. ${drapePrompt}` : ''}${texturePromptSegment}`
-      : `A ${genderPrompt} ${ethnicityPrompt}${accessoriesPromptSegment}, ${conceptPrompt}${drapePrompt ? `. ${drapePrompt}` : ''}${texturePromptSegment}${negativePrompt ? `. ${negativePrompt}` : ''}`
+    const prompt = `${modelPrompt}${accessoriesPromptSegment}, ${conceptPrompt}${drapePrompt ? `. ${drapePrompt}` : ''}${texturePromptSegment}${!faceReferenceUrl && negativePrompt ? `. ${negativePrompt}` : ''}`
 
 
     let imageUrls: string[] = []

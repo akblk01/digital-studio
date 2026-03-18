@@ -1,4 +1,5 @@
-export type Ethnicity = 'slavic' | 'middle_eastern' | 'european' | 'turkish'
+export type Ethnicity = 'slavic' | 'middle_eastern' | 'european' | 'turkish' // legacy
+export type ModelAppearance = 'blonde' | 'brunette' | 'dark' | 'redhead' | 'deep'
 export type Concept = 
   // Minimal Studio presets
   | 'minimal_white' | 'minimal_wood' | 'minimal_silver' | 'minimal_botanical' | 'minimal_concrete'
@@ -7,7 +8,7 @@ export type Concept =
   // Luxury Showroom presets
   | 'luxury_leather' | 'luxury_marble' | 'luxury_glass' | 'luxury_gold' | 'luxury_velvet'
 
-export type Gender = 'female' | 'male' | 'unisex'
+export type Gender = 'female' | 'male'
 export type GenerationStatus = 'pending' | 'processing' | 'completed' | 'failed'
 export type FabricType = 'cotton' | 'denim' | 'silk' | 'knit' | 'leather' | 'linen' | 'polyester'
 
@@ -30,7 +31,8 @@ export interface Generation {
   id: string
   user_id: string
   original_image_url: string
-  ethnicity: Ethnicity
+  ethnicity?: string // legacy field
+  appearance?: ModelAppearance
   concept: Concept
   gender: Gender
   status: GenerationStatus
@@ -66,29 +68,48 @@ export interface CreditTransaction {
   created_at: string
 }
 
-// Fal.ai / FASHN prompt yapılandırması
-export const GENDER_CONFIG: Record<Gender, { label: string; promptModifier: string }> = {
-  female: { label: 'Kadın (Female)', promptModifier: 'beautiful female' },
-  male: { label: 'Erkek (Male)', promptModifier: 'handsome male' },
-  unisex: { label: 'Unisex / Androgynous', promptModifier: 'stylish androgynous' }
+// Cinsiyet konfigürasyonu (Unisex kaldırıldı)
+export const GENDER_CONFIG: Record<Gender, { label: string }> = {
+  female: { label: 'Kadın (Female)' },
+  male: { label: 'Erkek (Male)' }
 }
 
-export const ETHNICITY_CONFIG: Record<Ethnicity, { label: string; modelPrompt: string }> = {
-  slavic: {
-    label: 'Slavic / Russian',
-    modelPrompt: 'slavic model, natural pale skin with subtle pores, light expressive eyes, realistic facial symmetry'
+// Fenotip × Cinsiyet prompt matrisi
+export const APPEARANCE_CONFIG: Record<ModelAppearance, {
+  label: string
+  emoji: string
+  femalePrompt: string
+  malePrompt: string
+}> = {
+  blonde: {
+    label: 'Sarışın',
+    emoji: '🟡',
+    femalePrompt: 'beautiful blonde female fashion model, porcelain fair skin with natural pores, golden blonde hair, light blue or green eyes, refined Scandinavian features, editorial look',
+    malePrompt: 'handsome blonde male model, fair complexion, natural golden blonde hair, light eyes, clean-cut Northern European features, professional commercial look'
   },
-  middle_eastern: {
-    label: 'Middle Eastern / Arab',
-    modelPrompt: 'middle eastern model, natural olive skin texture, dark hair, authentic elegant features, real person'
+  brunette: {
+    label: 'Kumral',
+    emoji: '🟤',
+    femalePrompt: 'beautiful brunette female model, light to medium warm skin, natural chestnut or light brown hair, hazel or warm brown eyes, Southern European features, natural editorial look',
+    malePrompt: 'handsome brunette male model, light-medium warm complexion, natural chestnut brown hair, warm brown eyes, classic Southern European bone structure, professional look'
   },
-  european: {
-    label: 'European / Western',
-    modelPrompt: 'western european model, natural skin texture, everyday professional look, candid'
+  dark: {
+    label: 'Esmer',
+    emoji: '🟫',
+    femalePrompt: 'beautiful dark-featured female model, natural wheat to olive skin tone, jet black or dark brown hair, deep expressive dark eyes, defined Mediterranean or Middle Eastern features, editorial look',
+    malePrompt: 'handsome dark-featured male model, natural olive to medium brown complexion, dark hair, strong defined features, Mediterranean or MENA heritage look, professional editorial'
   },
-  turkish: {
-    label: 'Turkish / Local',
-    modelPrompt: 'turkish model, genuine mediterranean features, warm natural skin tone with slight imperfections'
+  redhead: {
+    label: 'Kızıl',
+    emoji: '🔴',
+    femalePrompt: 'beautiful redhead female model, very fair freckled skin, natural auburn or copper red hair, green or blue eyes, soft Celtic or Northern European features, editorial look',
+    malePrompt: 'handsome redhead male model, fair complexion with light freckles, natural red or auburn hair, light eyes, clean Celtic features, professional commercial look'
+  },
+  deep: {
+    label: 'Koyu Tenli',
+    emoji: '⚫',
+    femalePrompt: 'beautiful dark-skinned female fashion model, rich deep brown complexion, natural coily or textured dark hair, deep brown eyes, confident and elegant, high-fashion editorial look',
+    malePrompt: 'handsome dark-skinned male model, deep rich brown skin tone, natural dark hair, strong defined features, professional fashion editorial, confident look'
   }
 }
 

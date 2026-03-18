@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { productToModel } from '@/lib/fashn'
-import { ETHNICITY_CONFIG, CONCEPT_CONFIG } from '@/types'
-import type { Ethnicity, Concept } from '@/types'
+import { APPEARANCE_CONFIG, CONCEPT_CONFIG } from '@/types'
+import type { ModelAppearance, Concept } from '@/types'
 
 export const maxDuration = 300
 
@@ -23,9 +23,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { items, ethnicity, concept, faceReferenceUrl } = await req.json() as {
+    const { items, appearance, concept, faceReferenceUrl } = await req.json() as {
       items: { imageUrl: string; productName?: string }[]
-      ethnicity: Ethnicity
+      appearance: ModelAppearance
       concept: Concept
       faceReferenceUrl?: string
     }
@@ -55,9 +55,10 @@ export async function POST(req: NextRequest) {
       }, { status: 402 })
     }
 
-    const ethnicityPrompt = ETHNICITY_CONFIG[ethnicity].modelPrompt
+    const safeAppearance: ModelAppearance = appearance || 'brunette'
+    const appearanceConfig = APPEARANCE_CONFIG[safeAppearance]
     const conceptPrompt = CONCEPT_CONFIG[concept].bgPrompt
-    const prompt = `${ethnicityPrompt}, ${conceptPrompt}`
+    const prompt = `${appearanceConfig.femalePrompt}, ${conceptPrompt}`
 
     // Sıralı işleme (rate limit'e takılmamak için)
     const batchResults: {
@@ -79,7 +80,7 @@ export async function POST(req: NextRequest) {
           .insert({
             user_id: user.id,
             original_image_url: item.imageUrl,
-            ethnicity,
+            ethnicity: safeAppearance, // legacy kolon
             concept,
             status: 'processing',
             credits_used: creditsPerItem

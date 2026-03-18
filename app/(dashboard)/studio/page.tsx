@@ -26,8 +26,8 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent } from "@/components/ui/card"
-import { ETHNICITY_CONFIG, CONCEPT_CONFIG, FABRIC_CONFIG, GENDER_CONFIG, POSE_CONFIG } from "@/types"
-import type { Ethnicity, Concept, GeneratedImage, FabricType, Gender } from "@/types"
+import { APPEARANCE_CONFIG, CONCEPT_CONFIG, FABRIC_CONFIG, GENDER_CONFIG, POSE_CONFIG } from "@/types"
+import type { ModelAppearance, Concept, GeneratedImage, FabricType, Gender } from "@/types"
 import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import { useTranslation } from "@/lib/i18n/context"
@@ -39,7 +39,7 @@ export default function StudioPage() {
   const [backImageUrl, setBackImageUrl] = useState<string | null>(null)
   
   const [selectedGender, setSelectedGender] = useState<Gender | null>(null)
-  const [selectedEthnicity, setSelectedEthnicity] = useState<Ethnicity | null>(null)
+  const [selectedAppearance, setSelectedAppearance] = useState<ModelAppearance | null>(null)
   const [selectedConcept, setSelectedConcept] = useState<Concept | null>(null)
   const [selectedFabric, setSelectedFabric] = useState<FabricType | null>(null)
   const [extractedTexture, setExtractedTexture] = useState<string>("")
@@ -151,7 +151,7 @@ export default function StudioPage() {
     if (!backFile) { toast.error("Arka ürün görselini yüklemelisiniz (Zorunlu)."); return; }
     if (modelTab === 'ai') {
       if (!selectedGender) { toast.error("Model cinsiyetini seçmelisiniz."); return; }
-      if (!selectedEthnicity) { toast.error("Etnisite seçmelisiniz."); return; }
+      if (!selectedAppearance) { toast.error("Model görünümü seçmelisiniz."); return; }
       if (!selectedConcept) { toast.error("Konsept seçmelisiniz."); return; }
     } else {
       if (!faceReferenceUrl) { toast.error("Lütfen kayıtlı bir manken seçin."); return; }
@@ -269,7 +269,7 @@ export default function StudioPage() {
         body: JSON.stringify({
             imageUrl: publicUrl,
             gender: selectedGender,
-            ethnicity: selectedEthnicity,
+            appearance: selectedAppearance,
             concept: selectedConcept,
             fabricType: selectedFabric,
             textureDetails: extractedTexture,
@@ -564,18 +564,20 @@ export default function StudioPage() {
                             </SelectContent>
                           </Select>
                         </div>
-                        {/* Ethnicity */}
+                        {/* Model Görünümü */}
                         <div className="space-y-2">
                           <Label className="text-xs font-semibold text-zinc-600 dark:text-zinc-400 flex items-center gap-1.5">
-                            <Eye className="w-3.5 h-3.5" />{t('studio_label_ethnicity')}
+                            <Eye className="w-3.5 h-3.5" />Model Görünümü
                           </Label>
-                          <Select value={selectedEthnicity || ""} onValueChange={(val) => setSelectedEthnicity(val as Ethnicity)}>
+                          <Select value={selectedAppearance || ""} onValueChange={(val) => setSelectedAppearance(val as ModelAppearance)}>
                             <SelectTrigger className="w-full h-10 bg-zinc-50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 rounded-xl focus:ring-violet-500 text-xs">
-                              <SelectValue placeholder={t('studio_label_ethnicity') + '...'} />
+                              <SelectValue placeholder="Görünüm seçin..." />
                             </SelectTrigger>
                             <SelectContent className="rounded-xl border-zinc-200 dark:border-zinc-800 z-50">
-                              {Object.entries(ETHNICITY_CONFIG).map(([key, config]) => (
-                                <SelectItem key={key} value={key} className="cursor-pointer">{config.label}</SelectItem>
+                              {Object.entries(APPEARANCE_CONFIG).map(([key, config]) => (
+                                <SelectItem key={key} value={key} className="cursor-pointer">
+                                  <span className="flex items-center gap-2">{config.emoji} {config.label}</span>
+                                </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
