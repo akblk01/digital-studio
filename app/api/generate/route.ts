@@ -24,8 +24,8 @@ export async function POST(req: NextRequest) {
       backImageUrl         // Arka açı: sırt dekoltesi, sırt baskısı vb.
     } = await req.json() as {
       imageUrl: string
-      ethnicity: Ethnicity
-      concept: Concept
+      ethnicity?: Ethnicity
+      concept?: Concept
       gender?: Gender
       fabricType?: FabricType
       textureDetails?: string
@@ -35,9 +35,13 @@ export async function POST(req: NextRequest) {
       backImageUrl?: string
     }
 
-    if (!imageUrl || !ethnicity || !concept) {
+    if (!imageUrl) {
       return NextResponse.json({ error: 'Eksik parametre' }, { status: 400 })
     }
+
+    // Kayıtlı manken modunda ethnicity/concept gönderilmeyebilir — varsayılan ata
+    const safeEthnicity: Ethnicity = ethnicity || 'european'
+    const safeConcept: Concept = concept || 'minimal_white'
 
     const safeGender: Gender = gender || 'female'
 
@@ -75,9 +79,9 @@ export async function POST(req: NextRequest) {
       .from('generations')
       .insert({
         user_id: userId,
-        original_image_url: imageUrl, // Keep original_image_url for tracking
-        ethnicity,
-        concept,
+        original_image_url: imageUrl,
+        ethnicity: safeEthnicity,
+        concept: safeConcept,
         gender: safeGender,
         status: 'processing',
         credits_used: requiredCredits, // Update credits_used
@@ -90,8 +94,8 @@ export async function POST(req: NextRequest) {
     // 3. FASHN.ai product-to-model — TEK API ÇAĞRISI ile 4 görsel üret
     // Eski 2 aşamalı pipeline (Flux Pro + VTON) tamamen kaldırıldı.
     const genderPrompt = GENDER_CONFIG[safeGender].promptModifier
-    const ethnicityPrompt = ETHNICITY_CONFIG[ethnicity].modelPrompt
-    const conceptPrompt = CONCEPT_CONFIG[concept].bgPrompt
+    const ethnicityPrompt = ETHNICITY_CONFIG[safeEthnicity].modelPrompt
+    const conceptPrompt = CONCEPT_CONFIG[safeConcept].bgPrompt
     const fabricConfig = fabricType ? FABRIC_CONFIG[fabricType] : null
     const drapePrompt = fabricConfig?.drapePrompt || ''
     const negativePrompt = fabricConfig?.negativePrompt || ''
@@ -100,7 +104,9 @@ export async function POST(req: NextRequest) {
     const texturePromptSegment = textureDetails ? `. PRESERVE THIS EXACT TEXTURE: ${textureDetails}` : ''
     const accessoriesPromptSegment = accessories ? `, wearing ${accessories}` : ''
     
-    const prompt = `A ${genderPrompt} ${ethnicityPrompt}${accessoriesPromptSegment}, ${conceptPrompt}${drapePrompt ? `. ${drapePrompt}` : ''}${texturePromptSegment}${negativePrompt ? `. ${negativePrompt}` : ''}`
+    const prompt = faceReferenceUrl
+      ? `A professional fashion model${accessoriesPromptSegment}, ${conceptPrompt}${drapePrompt ? `. ${drapePrompt}` : ''}${texturePromptSegment}`
+      : `A ${genderPrompt} ${ethnicityPrompt}${accessoriesPromptSegment}, ${conceptPrompt}${drapePrompt ? `. ${drapePrompt}` : ''}${texturePromptSegment}${negativePrompt ? `. ${negativePrompt}` : ''}`
 
 
     let imageUrls: string[] = []
