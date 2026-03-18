@@ -18,7 +18,20 @@ export default function Header() {
   const { locale, setLocale, t } = useTranslation()
 
   useEffect(() => {
-    // Auth state listener
+    // İlk yüklenmede hemen session al — listener geç gelebilir
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null)
+      if (session?.user) {
+        supabase
+          .from('profiles')
+          .select('credits, full_name, subscription_plan')
+          .eq('id', session.user.id)
+          .single()
+          .then(({ data }) => setProfile(data))
+      }
+    })
+
+    // Auth state değişikliklerini dinle (login/logout)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setUser(session?.user ?? null)
       if (session?.user) {

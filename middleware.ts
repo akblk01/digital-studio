@@ -5,7 +5,6 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
   // Auth sayfaları — middleware Supabase işlemi yapma, doğrudan geç
-  // signIn/signUp cookie'lerinin düzgün çalışması için gerekli
   if (pathname.startsWith('/login') || pathname.startsWith('/register')) {
     return NextResponse.next()
   }
@@ -46,14 +45,12 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(url)
     }
   } catch (e) {
-    console.warn('Middleware auth check failed:', (e as Error).message)
-    // Fallback: Cookie var mı kontrol et
-    const hasAuthCookie = request.cookies.getAll().some(c => c.name.startsWith('sb-') && c.name.includes('auth'))
-    if (!hasAuthCookie) {
-      const url = request.nextUrl.clone()
-      url.pathname = '/login'
-      return NextResponse.redirect(url)
-    }
+    // getUser() başarısız = auth geçersiz → login'e yönlendir
+    // Stale cookie fallback KALDIRILDI — güvenlik açığı yaratıyordu
+    console.warn('Middleware auth failed:', (e as Error).message)
+    const url = request.nextUrl.clone()
+    url.pathname = '/login'
+    return NextResponse.redirect(url)
   }
 
   return supabaseResponse

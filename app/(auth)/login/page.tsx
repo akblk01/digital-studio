@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,26 +15,14 @@ export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
-  const [checkingSession, setCheckingSession] = useState(true)
+  const [errorMsg, setErrorMsg] = useState("")
   const supabase = createClient()
   const { t } = useTranslation()
-
-  // Zaten giriş yapmışsa direkt studio'ya yönlendir
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        window.location.href = '/studio'
-      } else {
-        setCheckingSession(false)
-      }
-    }).catch(() => {
-      setCheckingSession(false)
-    })
-  }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
+    setErrorMsg("")
     
     try {
       const { error } = await supabase.auth.signInWithPassword({
@@ -43,31 +31,25 @@ export default function LoginPage() {
       })
 
       if (error) {
-        console.error('[Login] Auth error:', error.message)
-        toast.error(t('login_toast_fail'), { description: error.message })
+        const msg = error.message === 'Invalid login credentials'
+          ? t('login_invalid_credentials')
+          : error.message
+        setErrorMsg(msg)
+        toast.error(t('login_toast_fail'), { description: msg })
         setLoading(false)
       } else {
         toast.success(t('login_toast_success'))
         window.location.href = '/studio'
       }
     } catch (err: any) {
-      console.error('[Login] Catch error:', err)
+      setErrorMsg(err.message || 'Bağlantı hatası')
       toast.error(t('login_toast_fail'), { description: err.message || 'Bağlantı hatası' })
       setLoading(false)
     }
   }
 
-  if (checkingSession) {
-    return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-64px)] bg-[#0F0F1A]">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-violet-500" />
-      </div>
-    )
-  }
-
   return (
     <div className="flex items-center justify-center min-h-[calc(100vh-64px)] bg-[#0F0F1A] p-4 relative overflow-hidden">
-      {/* Background decoration */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[#6C63FF]/10 rounded-full blur-[100px] pointer-events-none" />
 
       <Card className="w-full max-w-md bg-[#1A1A2E]/80 border-[#2A2A3E] backdrop-blur-xl relative z-10">
@@ -107,6 +89,11 @@ export default function LoginPage() {
                 className="bg-[#0F0F1A] border-[#2A2A3E] text-white focus-visible:ring-[#6C63FF]"
               />
             </div>
+            {errorMsg && (
+              <p className="text-sm text-red-400 text-center bg-red-500/10 border border-red-500/20 rounded-lg p-2">
+                {errorMsg}
+              </p>
+            )}
             <Button 
               type="submit" 
               className="w-full bg-[#6C63FF] hover:bg-[#5b54d6] text-white" 
