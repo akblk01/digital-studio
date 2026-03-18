@@ -39,7 +39,10 @@ export default function LoginPage() {
         setLoading(false)
       } else {
         toast.success(t('login_toast_success'))
+        // Timeout fallback: 5sn içinde yönlendirme olmazsa loading sıfırla
+        const redirectTimeout = setTimeout(() => setLoading(false), 5000)
         window.location.href = '/studio'
+        clearTimeout(redirectTimeout)
       }
     } catch (err: any) {
       setErrorMsg(err.message || 'Bağlantı hatası')
