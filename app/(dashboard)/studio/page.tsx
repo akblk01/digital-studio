@@ -453,56 +453,28 @@ export default function StudioPage() {
                   {/* Yan Yana Grid: Ön + Arka */}
                   <div className="grid grid-cols-2 gap-3">
                     {/* ÖN GÖRSEL */}
-                    <div className={`relative border-2 border-dashed rounded-2xl overflow-hidden transition-all duration-300 aspect-[3/4] flex flex-col items-center justify-center
-                      ${imageUrl ? 'border-violet-500/50 bg-zinc-900/30' : 'border-zinc-300 dark:border-zinc-700 hover:border-violet-400 bg-zinc-50 dark:bg-zinc-900/30'}`}>
-                      {imageUrl ? (
-                        <div className="absolute inset-0 group/img">
-                          <img src={imageUrl} alt={t('studio_front_label')} className="absolute inset-0 w-full h-full object-cover" />
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
-                            <Label htmlFor="image-upload" className="cursor-pointer bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-full text-white font-medium text-xs transition-colors border border-white/20">
-                              {t('studio_change')}
-                            </Label>
-                          </div>
-                          <div className="absolute top-2 left-2 bg-black/60 text-white text-[10px] font-bold rounded px-2 py-0.5">{t('studio_front_label')}</div>
-                        </div>
-                      ) : (
-                        <label htmlFor="image-upload" className="cursor-pointer flex flex-col items-center gap-2 p-4 text-center">
-                          <UploadCloud className="w-8 h-8 text-zinc-400" />
-                          <p className="text-xs font-medium text-zinc-500">{t('studio_front_upload')}</p>
-                        </label>
-                      )}
-                      <Input 
-                        id="image-upload" 
-                        type="file" 
-                        accept="image/*" 
-                        className="hidden" 
-                        onChange={handleFileUpload}
-                        required
-                      />
-                    </div>
+                    <label htmlFor="image-upload" className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-dashed cursor-pointer transition-all duration-200 ${file ? 'border-violet-500/60 bg-violet-500/5 dark:bg-violet-500/10' : 'border-zinc-300 dark:border-zinc-700 hover:border-violet-400 bg-zinc-50 dark:bg-zinc-900/30'}`}>
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${file ? 'bg-violet-500/20' : 'bg-zinc-200 dark:bg-zinc-800'}`}>
+                        {file ? <CheckCircle2 className="w-4 h-4 text-violet-400" /> : <UploadCloud className="w-4 h-4 text-zinc-400" />}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">{t('studio_front_label')}</p>
+                        <p className="text-[10px] text-zinc-400 truncate">{file ? file.name : t('studio_front_upload')}</p>
+                      </div>
+                      <Input id="image-upload" type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
+                    </label>
 
                     {/* ARKA GÖRSEL */}
-                    <div className={`relative border-2 border-dashed rounded-2xl overflow-hidden transition-all duration-300 aspect-[3/4] flex flex-col items-center justify-center
-                      ${backImageUrl ? 'border-emerald-500/50 bg-zinc-900/30' : 'border-red-300 dark:border-red-700 hover:border-violet-400 bg-zinc-50 dark:bg-zinc-900/30'}`}>
-                      {backImageUrl ? (
-                        <div className="absolute inset-0 group/back">
-                          <img src={backImageUrl} alt={t('studio_back_label')} className="absolute inset-0 w-full h-full object-cover" />
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/back:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
-                            <button type="button" onClick={removeBackFile} className="bg-red-500/80 hover:bg-red-500 px-3 py-1.5 rounded-full text-white font-medium text-xs transition-colors">
-                              {t('studio_back_remove')}
-                            </button>
-                          </div>
-                          <div className="absolute top-2 left-2 bg-black/60 text-white text-[10px] font-bold rounded px-2 py-0.5">{t('studio_back_label')}</div>
-                        </div>
-                      ) : (
-                        <label htmlFor="back-upload" className="cursor-pointer flex flex-col items-center gap-2 p-4 text-center">
-                          <UploadCloud className="w-8 h-8 text-red-400" />
-                          <p className="text-xs font-medium text-red-400">{t('studio_back_upload')}</p>
-                          <p className="text-[9px] text-zinc-400">{t('studio_required')}</p>
-                        </label>
-                      )}
+                    <label htmlFor="back-upload" className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-dashed cursor-pointer transition-all duration-200 ${backFile ? 'border-violet-500/60 bg-violet-500/5 dark:bg-violet-500/10' : 'border-zinc-300 dark:border-zinc-700 hover:border-violet-400 bg-zinc-50 dark:bg-zinc-900/30'}`}>
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${backFile ? 'bg-violet-500/20' : 'bg-zinc-200 dark:bg-zinc-800'}`}>
+                        {backFile ? <CheckCircle2 className="w-4 h-4 text-violet-400" /> : <UploadCloud className="w-4 h-4 text-zinc-400" />}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">{t('studio_back_label')}</p>
+                        <p className="text-[10px] text-zinc-400 truncate">{backFile ? backFile.name : t('studio_back_upload')}</p>
+                      </div>
                       <Input id="back-upload" type="file" accept="image/*" className="hidden" onChange={handleBackFileUpload} />
-                    </div>
+                    </label>
                   </div>
                 </div>
 
