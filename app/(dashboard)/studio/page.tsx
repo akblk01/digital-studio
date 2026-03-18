@@ -457,7 +457,7 @@ export default function StudioPage() {
                       ${imageUrl ? 'border-violet-500/50 bg-zinc-900/30' : 'border-zinc-300 dark:border-zinc-700 hover:border-violet-400 bg-zinc-50 dark:bg-zinc-900/30'}`}>
                       {imageUrl ? (
                         <div className="absolute inset-0 group/img">
-                          <Image src={imageUrl} alt={t('studio_front_label')} fill className="object-cover" />
+                          <Image src={imageUrl} alt={t('studio_front_label')} fill className="object-cover" unoptimized />
                           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
                             <Label htmlFor="image-upload" className="cursor-pointer bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-full text-white font-medium text-xs transition-colors border border-white/20">
                               {t('studio_change')}
@@ -486,7 +486,7 @@ export default function StudioPage() {
                       ${backImageUrl ? 'border-emerald-500/50 bg-zinc-900/30' : 'border-red-300 dark:border-red-700 hover:border-violet-400 bg-zinc-50 dark:bg-zinc-900/30'}`}>
                       {backImageUrl ? (
                         <div className="absolute inset-0 group/back">
-                          <Image src={backImageUrl} alt={t('studio_back_label')} fill className="object-cover" />
+                          <Image src={backImageUrl} alt={t('studio_back_label')} fill className="object-cover" unoptimized />
                           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/back:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
                             <button type="button" onClick={removeBackFile} className="bg-red-500/80 hover:bg-red-500 px-3 py-1.5 rounded-full text-white font-medium text-xs transition-colors">
                               {t('studio_back_remove')}
@@ -673,7 +673,7 @@ export default function StudioPage() {
                       <>
                         {facePreviewUrl ? (
                           <div className="flex items-center gap-3">
-                            <Image src={facePreviewUrl} alt="Face" width={48} height={48} className="rounded-full object-cover w-12 h-12" />
+                            <Image src={facePreviewUrl} alt="Face" width={48} height={48} className="rounded-full object-cover w-12 h-12" unoptimized />
                             <div>
                               <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">{faceFile?.name}</p>
                               <button type="button" onClick={() => { setFaceFile(null); setFacePreviewUrl(null); setFaceReferenceUrl(null) }} className="text-xs text-red-500 hover:text-red-400">
