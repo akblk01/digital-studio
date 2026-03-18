@@ -1,8 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -16,9 +15,22 @@ export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
-  const router = useRouter()
+  const [checkingSession, setCheckingSession] = useState(true)
   const supabase = createClient()
   const { t } = useTranslation()
+
+  // Zaten giriş yapmışsa direkt studio'ya yönlendir
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        window.location.href = '/studio'
+      } else {
+        setCheckingSession(false)
+      }
+    }).catch(() => {
+      setCheckingSession(false)
+    })
+  }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -26,25 +38,31 @@ export default function LoginPage() {
     
     try {
       const { error } = await supabase.auth.signInWithPassword({
-        email,
+        email: email.trim(),
         password,
       })
 
       if (error) {
+        console.error('[Login] Auth error:', error.message)
         toast.error(t('login_toast_fail'), { description: error.message })
         setLoading(false)
       } else {
         toast.success(t('login_toast_success'))
-        // router.push middleware cookie race condition yaratıyor
-        // window.location tam sayfa yenileme yaparak cookie'lerin gönderilmesini garanti eder
-        setTimeout(() => {
-          window.location.href = '/studio'
-        }, 500)
+        window.location.href = '/studio'
       }
     } catch (err: any) {
-      toast.error(t('login_toast_error'))
+      console.error('[Login] Catch error:', err)
+      toast.error(t('login_toast_fail'), { description: err.message || 'Bağlantı hatası' })
       setLoading(false)
     }
+  }
+
+  if (checkingSession) {
+    return (
+      <div className="flex items-center justify-center min-h-[calc(100vh-64px)] bg-[#0F0F1A]">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-violet-500" />
+      </div>
+    )
   }
 
   return (
