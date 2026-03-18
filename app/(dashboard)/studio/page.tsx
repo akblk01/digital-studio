@@ -151,10 +151,10 @@ export default function StudioPage() {
     if (modelTab === 'ai') {
       if (!selectedGender) { toast.error("Model cinsiyetini seçmelisiniz."); return; }
       if (!selectedAppearance) { toast.error("Model görünümü seçmelisiniz."); return; }
-      if (!selectedConcept) { toast.error("Konsept seçmelisiniz."); return; }
     } else {
       if (!faceReferenceUrl) { toast.error("Lütfen kayıtlı bir manken seçin."); return; }
     }
+    if (!selectedConcept) { toast.error("Konsept seçmelisiniz."); return; }
 
     // Client-side auth kontrolü — giriş yapmadan üretim yapılamaz
     const { data: { session } } = await supabase.auth.getSession()
@@ -523,10 +523,10 @@ export default function StudioPage() {
                     </button>
                   </div>
 
-                  {/* AI Model Tab */}
+                   {/* AI Model Tab */}
                   {modelTab === 'ai' && (
                     <div className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-2 gap-4">
                         {/* Gender */}
                         <div className="space-y-2">
                           <Label className="text-xs font-semibold text-zinc-600 dark:text-zinc-400 flex items-center gap-1.5">
@@ -557,22 +557,6 @@ export default function StudioPage() {
                                 <SelectItem key={key} value={key} className="cursor-pointer">
                                   <span className="flex items-center gap-2">{config.emoji} {config.label}</span>
                                 </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        {/* Concept */}
-                        <div className="space-y-2">
-                          <Label className="text-xs font-semibold text-zinc-600 dark:text-zinc-400 flex items-center gap-1.5">
-                            <Layers className="w-3.5 h-3.5" />{t('studio_label_concept')}
-                          </Label>
-                          <Select value={selectedConcept || ""} onValueChange={(val) => setSelectedConcept(val as Concept)}>
-                            <SelectTrigger className="w-full h-10 bg-zinc-50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 rounded-xl focus:ring-violet-500 text-xs">
-                              <SelectValue placeholder={t('studio_label_concept') + '...'} />
-                            </SelectTrigger>
-                            <SelectContent className="rounded-xl border-zinc-200 dark:border-zinc-800 z-50">
-                              {Object.entries(CONCEPT_CONFIG).map(([key, config]) => (
-                                <SelectItem key={key} value={key} className="cursor-pointer">{config.label}</SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
@@ -623,8 +607,27 @@ export default function StudioPage() {
                       )}
                     </div>
                   )}
-                </div>
+
+                  {/* Konsept — Her iki sekme için ortak zorunlu alan */}
+                  <div className="space-y-2 pt-3 border-t border-zinc-100 dark:border-zinc-800/50">
+                    <Label className="text-xs font-semibold text-zinc-600 dark:text-zinc-400 flex items-center gap-1.5">
+                      <Layers className="w-3.5 h-3.5" />{t('studio_label_concept')}
+                    </Label>
+                    <Select value={selectedConcept || ""} onValueChange={(val) => setSelectedConcept(val as Concept)}>
+                      <SelectTrigger className="w-full h-10 bg-zinc-50 dark:bg-zinc-900/30 border-zinc-200 dark:border-zinc-800 rounded-xl focus:ring-violet-500 text-xs">
+                        <SelectValue placeholder={t('studio_label_concept') + '...'} />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl border-zinc-200 dark:border-zinc-800 z-50">
+                        {Object.entries(CONCEPT_CONFIG).map(([key, config]) => (
+                          <SelectItem key={key} value={key} className="cursor-pointer">
+                            <span className="flex items-center gap-2">{config.emoji} {config.label}</span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
               </div>
+            </div>
 
               {/* Generate Action */}
               <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800/50 mt-4">
